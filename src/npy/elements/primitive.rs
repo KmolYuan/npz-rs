@@ -220,12 +220,12 @@ impl ViewElement for bool {
         type_desc: &PyValue,
         len: usize,
     ) -> Result<&'a [Self], ViewDataError> {
-        match *type_desc {
-            PyValue::String(ref s) if s == "|b1" => {
+        match type_desc {
+            PyValue::String(s) if s == "|b1" => {
                 check_valid_for_bool(bytes)?;
                 unsafe { bytes_as_slice(bytes, len) }
             }
-            ref other => Err(ViewDataError::WrongDescriptor(other.clone())),
+            _ => Err(ViewDataError::WrongDescriptor(type_desc.clone())),
         }
     }
 }
@@ -236,12 +236,12 @@ impl ViewMutElement for bool {
         type_desc: &PyValue,
         len: usize,
     ) -> Result<&'a mut [Self], ViewDataError> {
-        match *type_desc {
-            PyValue::String(ref s) if s == "|b1" => {
+        match type_desc {
+            PyValue::String(s) if s == "|b1" => {
                 check_valid_for_bool(bytes)?;
                 unsafe { bytes_as_mut_slice(bytes, len) }
             }
-            ref other => Err(ViewDataError::WrongDescriptor(other.clone())),
+            _ => Err(ViewDataError::WrongDescriptor(type_desc.clone())),
         }
     }
 }

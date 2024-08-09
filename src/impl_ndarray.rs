@@ -34,7 +34,7 @@ where
                 shape: self.shape().to_owned(),
             }
             .write(&mut writer)?;
-            for elem in self.iter() {
+            for elem in self {
                 elem.write(&mut writer)?;
             }
             writer.flush()?;
@@ -51,10 +51,10 @@ where
 {
     fn read_npy<R: io::Read>(mut reader: R) -> Result<Self, ReadNpyError> {
         let header = Header::from_reader(&mut reader)?;
-        let shape = header.shape.into_dimension();
+        let shape: IxDyn = header.shape.into_dimension();
         let ndim = shape.ndim();
         let len = shape_length_checked::<A>(&shape).ok_or(ReadNpyError::LengthOverflow)?;
-        let data = A::read_to_end_exact_vec(&mut reader, &header.type_descriptor, len)?;
+        let data = A::read_to_end_exact_vec(reader, &header.type_descriptor, len)?;
         ArrayBase::from_shape_vec(shape.set_f(header.fortran_order), data)
             .unwrap()
             .into_dimensionality()
@@ -67,13 +67,12 @@ where
     A: ViewElement,
     D: Dimension,
 {
-    fn view_npy(buf: &'a [u8]) -> Result<Self, ViewNpyError> {
-        let mut reader = buf;
-        let header = Header::from_reader(&mut reader)?;
-        let shape = header.shape.into_dimension();
+    fn view_npy(mut buf: &'a [u8]) -> Result<Self, ViewNpyError> {
+        let header = Header::from_reader(&mut buf)?;
+        let shape: IxDyn = header.shape.into_dimension();
         let ndim = shape.ndim();
         let len = shape_length_checked::<A>(&shape).ok_or(ViewNpyError::LengthOverflow)?;
-        let data = A::bytes_as_slice(reader, &header.type_descriptor, len)?;
+        let data = A::bytes_as_slice(buf, &header.type_descriptor, len)?;
         ArrayView::from_shape(shape.set_f(header.fortran_order), data)
             .unwrap()
             .into_dimensionality()
@@ -89,7 +88,7 @@ where
     fn view_mut_npy(buf: &'a mut [u8]) -> Result<Self, ViewNpyError> {
         let mut reader = &*buf;
         let header = Header::from_reader(&mut reader)?;
-        let shape = header.shape.into_dimension();
+        let shape: IxDyn = header.shape.into_dimension();
         let ndim = shape.ndim();
         let len = shape_length_checked::<A>(&shape).ok_or(ViewNpyError::LengthOverflow)?;
         let mid = buf.len() - reader.len();

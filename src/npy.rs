@@ -237,8 +237,8 @@ pub enum WriteDataError {
 impl Error for WriteDataError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            WriteDataError::Io(err) => Some(err),
-            WriteDataError::FormatData(err) => Some(&**err),
+            Self::Io(err) => Some(err),
+            Self::FormatData(err) => Some(&**err),
         }
     }
 }
@@ -246,15 +246,15 @@ impl Error for WriteDataError {
 impl fmt::Display for WriteDataError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            WriteDataError::Io(err) => write!(f, "I/O error: {}", err),
-            WriteDataError::FormatData(err) => write!(f, "error formatting data: {}", err),
+            Self::Io(err) => write!(f, "I/O error: {}", err),
+            Self::FormatData(err) => write!(f, "error formatting data: {}", err),
         }
     }
 }
 
 impl From<io::Error> for WriteDataError {
-    fn from(err: io::Error) -> WriteDataError {
-        WriteDataError::Io(err)
+    fn from(err: io::Error) -> Self {
+        Self::Io(err)
     }
 }
 
@@ -272,9 +272,9 @@ pub enum WriteNpyError {
 impl Error for WriteNpyError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            WriteNpyError::Io(err) => Some(err),
-            WriteNpyError::FormatHeader(err) => Some(err),
-            WriteNpyError::FormatData(err) => Some(&**err),
+            Self::Io(err) => Some(err),
+            Self::FormatHeader(err) => Some(err),
+            Self::FormatData(err) => Some(&**err),
         }
     }
 }
@@ -282,39 +282,39 @@ impl Error for WriteNpyError {
 impl fmt::Display for WriteNpyError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            WriteNpyError::Io(err) => write!(f, "I/O error: {}", err),
-            WriteNpyError::FormatHeader(err) => write!(f, "error formatting header: {}", err),
-            WriteNpyError::FormatData(err) => write!(f, "error formatting data: {}", err),
+            Self::Io(err) => write!(f, "I/O error: {}", err),
+            Self::FormatHeader(err) => write!(f, "error formatting header: {}", err),
+            Self::FormatData(err) => write!(f, "error formatting data: {}", err),
         }
     }
 }
 
 impl From<io::Error> for WriteNpyError {
-    fn from(err: io::Error) -> WriteNpyError {
-        WriteNpyError::Io(err)
+    fn from(err: io::Error) -> Self {
+        Self::Io(err)
     }
 }
 
 impl From<WriteHeaderError> for WriteNpyError {
-    fn from(err: WriteHeaderError) -> WriteNpyError {
+    fn from(err: WriteHeaderError) -> Self {
         match err {
-            WriteHeaderError::Io(err) => WriteNpyError::Io(err),
-            WriteHeaderError::Format(err) => WriteNpyError::FormatHeader(err),
+            WriteHeaderError::Io(err) => Self::Io(err),
+            WriteHeaderError::Format(err) => Self::FormatHeader(err),
         }
     }
 }
 
 impl From<FormatHeaderError> for WriteNpyError {
-    fn from(err: FormatHeaderError) -> WriteNpyError {
-        WriteNpyError::FormatHeader(err)
+    fn from(err: FormatHeaderError) -> Self {
+        Self::FormatHeader(err)
     }
 }
 
 impl From<WriteDataError> for WriteNpyError {
-    fn from(err: WriteDataError) -> WriteNpyError {
+    fn from(err: WriteDataError) -> Self {
         match err {
-            WriteDataError::Io(err) => WriteNpyError::Io(err),
-            WriteDataError::FormatData(err) => WriteNpyError::FormatData(err),
+            WriteDataError::Io(err) => Self::Io(err),
+            WriteDataError::FormatData(err) => Self::FormatData(err),
         }
     }
 }
@@ -379,11 +379,11 @@ pub enum ReadDataError {
 impl Error for ReadDataError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            ReadDataError::Io(err) => Some(err),
-            ReadDataError::WrongDescriptor(_) => None,
-            ReadDataError::MissingData => None,
-            ReadDataError::ExtraBytes(_) => None,
-            ReadDataError::ParseData(err) => Some(&**err),
+            Self::Io(err) => Some(err),
+            Self::WrongDescriptor(_) => None,
+            Self::MissingData => None,
+            Self::ExtraBytes(_) => None,
+            Self::ParseData(err) => Some(&**err),
         }
     }
 }
@@ -391,15 +391,15 @@ impl Error for ReadDataError {
 impl fmt::Display for ReadDataError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ReadDataError::Io(err) => write!(f, "I/O error: {}", err),
-            ReadDataError::WrongDescriptor(desc) => {
+            Self::Io(err) => write!(f, "I/O error: {}", err),
+            Self::WrongDescriptor(desc) => {
                 write!(f, "incorrect descriptor ({}) for this type", desc)
             }
-            ReadDataError::MissingData => write!(f, "reached EOF before reading all data"),
-            ReadDataError::ExtraBytes(num_extra_bytes) => {
+            Self::MissingData => write!(f, "reached EOF before reading all data"),
+            Self::ExtraBytes(num_extra_bytes) => {
                 write!(f, "file had {} extra bytes before EOF", num_extra_bytes)
             }
-            ReadDataError::ParseData(err) => write!(f, "error parsing data: {}", err),
+            Self::ParseData(err) => write!(f, "error parsing data: {}", err),
         }
     }
 }
@@ -409,11 +409,11 @@ impl From<io::Error> for ReadDataError {
     ///
     /// If the error kind is `UnexpectedEof`, the `MissingData` variant is
     /// returned. Otherwise, the `Io` variant is returned.
-    fn from(err: io::Error) -> ReadDataError {
+    fn from(err: io::Error) -> Self {
         if err.kind() == io::ErrorKind::UnexpectedEof {
-            ReadDataError::MissingData
+            Self::MissingData
         } else {
-            ReadDataError::Io(err)
+            Self::Io(err)
         }
     }
 }
@@ -459,55 +459,50 @@ impl Error for ReadNpyError {
 impl fmt::Display for ReadNpyError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ReadNpyError::Io(err) => write!(f, "I/O error: {}", err),
-            ReadNpyError::ParseHeader(err) => write!(f, "error parsing header: {}", err),
-            ReadNpyError::ParseData(err) => write!(f, "error parsing data: {}", err),
-            ReadNpyError::LengthOverflow => write!(f, "overflow computing length from shape"),
-            ReadNpyError::WrongNdim(expected, actual) => write!(
+            Self::Io(err) => write!(f, "I/O error: {err}"),
+            Self::ParseHeader(err) => write!(f, "error parsing header: {err}"),
+            Self::ParseData(err) => write!(f, "error parsing data: {err}"),
+            Self::LengthOverflow => write!(f, "overflow computing length from shape"),
+            Self::WrongNdim(expected, actual) => write!(
                 f,
-                "ndim {} of array did not match Dimension type with NDIM = {:?}",
-                actual, expected
+                "ndim {actual} of array did not match Dimension type with NDIM = {expected:?}"
             ),
-            ReadNpyError::WrongDescriptor(desc) => {
-                write!(f, "incorrect descriptor ({}) for this type", desc)
-            }
-            ReadNpyError::MissingData => write!(f, "reached EOF before reading all data"),
-            ReadNpyError::ExtraBytes(num_extra_bytes) => {
-                write!(f, "file had {} extra bytes before EOF", num_extra_bytes)
-            }
+            Self::WrongDescriptor(desc) => write!(f, "incorrect descriptor ({desc}) for this type"),
+            Self::MissingData => write!(f, "reached EOF before reading all data"),
+            Self::ExtraBytes(num) => write!(f, "file had {num} extra bytes before EOF"),
         }
     }
 }
 
 impl From<io::Error> for ReadNpyError {
-    fn from(err: io::Error) -> ReadNpyError {
-        ReadNpyError::Io(err)
+    fn from(err: io::Error) -> Self {
+        Self::Io(err)
     }
 }
 
 impl From<ReadHeaderError> for ReadNpyError {
-    fn from(err: ReadHeaderError) -> ReadNpyError {
+    fn from(err: ReadHeaderError) -> Self {
         match err {
-            ReadHeaderError::Io(err) => ReadNpyError::Io(err),
-            ReadHeaderError::Parse(err) => ReadNpyError::ParseHeader(err),
+            ReadHeaderError::Io(err) => Self::Io(err),
+            ReadHeaderError::Parse(err) => Self::ParseHeader(err),
         }
     }
 }
 
 impl From<ParseHeaderError> for ReadNpyError {
-    fn from(err: ParseHeaderError) -> ReadNpyError {
-        ReadNpyError::ParseHeader(err)
+    fn from(err: ParseHeaderError) -> Self {
+        Self::ParseHeader(err)
     }
 }
 
 impl From<ReadDataError> for ReadNpyError {
-    fn from(err: ReadDataError) -> ReadNpyError {
+    fn from(err: ReadDataError) -> Self {
         match err {
-            ReadDataError::Io(err) => ReadNpyError::Io(err),
-            ReadDataError::WrongDescriptor(desc) => ReadNpyError::WrongDescriptor(desc),
-            ReadDataError::MissingData => ReadNpyError::MissingData,
-            ReadDataError::ExtraBytes(nbytes) => ReadNpyError::ExtraBytes(nbytes),
-            ReadDataError::ParseData(err) => ReadNpyError::ParseData(err),
+            ReadDataError::Io(err) => Self::Io(err),
+            ReadDataError::WrongDescriptor(desc) => Self::WrongDescriptor(desc),
+            ReadDataError::MissingData => Self::MissingData,
+            ReadDataError::ExtraBytes(nbytes) => Self::ExtraBytes(nbytes),
+            ReadDataError::ParseData(err) => Self::ParseData(err),
         }
     }
 }
@@ -672,12 +667,12 @@ pub enum ViewDataError {
 impl Error for ViewDataError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            ViewDataError::WrongDescriptor(_) => None,
-            ViewDataError::NonNativeEndian => None,
-            ViewDataError::Misaligned => None,
-            ViewDataError::MissingBytes(_) => None,
-            ViewDataError::ExtraBytes(_) => None,
-            ViewDataError::InvalidData(err) => Some(&**err),
+            Self::WrongDescriptor(_) => None,
+            Self::NonNativeEndian => None,
+            Self::Misaligned => None,
+            Self::MissingBytes(_) => None,
+            Self::ExtraBytes(_) => None,
+            Self::InvalidData(err) => Some(&**err),
         }
     }
 }
@@ -685,25 +680,15 @@ impl Error for ViewDataError {
 impl fmt::Display for ViewDataError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ViewDataError::WrongDescriptor(desc) => {
-                write!(f, "incorrect descriptor ({}) for this type", desc)
-            }
-            ViewDataError::NonNativeEndian => {
-                write!(f, "descriptor does not match native endianness")
-            }
-            ViewDataError::Misaligned => write!(
+            Self::WrongDescriptor(desc) => write!(f, "incorrect descriptor ({desc}) for this type"),
+            Self::NonNativeEndian => write!(f, "descriptor does not match native endianness"),
+            Self::Misaligned => write!(
                 f,
                 "start of data is not properly aligned for the element type"
             ),
-            ViewDataError::MissingBytes(num_missing_bytes) => write!(
-                f,
-                "missing {} bytes of data specified in header",
-                num_missing_bytes
-            ),
-            ViewDataError::ExtraBytes(num_extra_bytes) => {
-                write!(f, "file had {} extra bytes before EOF", num_extra_bytes)
-            }
-            ViewDataError::InvalidData(err) => write!(f, "invalid data for element type: {}", err),
+            Self::MissingBytes(num) => write!(f, "missing {num} bytes of data specified in header"),
+            Self::ExtraBytes(num) => write!(f, "file had {num} extra bytes before EOF"),
+            Self::InvalidData(err) => write!(f, "invalid data for element type: {err}"),
         }
     }
 }
@@ -739,16 +724,16 @@ pub enum ViewNpyError {
 impl Error for ViewNpyError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            ViewNpyError::Io(err) => Some(err),
-            ViewNpyError::ParseHeader(err) => Some(err),
-            ViewNpyError::InvalidData(err) => Some(&**err),
-            ViewNpyError::LengthOverflow => None,
-            ViewNpyError::WrongNdim(_, _) => None,
-            ViewNpyError::WrongDescriptor(_) => None,
-            ViewNpyError::NonNativeEndian => None,
-            ViewNpyError::MisalignedData => None,
-            ViewNpyError::MissingBytes(_) => None,
-            ViewNpyError::ExtraBytes(_) => None,
+            Self::Io(err) => Some(err),
+            Self::ParseHeader(err) => Some(err),
+            Self::InvalidData(err) => Some(&**err),
+            Self::LengthOverflow => None,
+            Self::WrongNdim(_, _) => None,
+            Self::WrongDescriptor(_) => None,
+            Self::NonNativeEndian => None,
+            Self::MisalignedData => None,
+            Self::MissingBytes(_) => None,
+            Self::ExtraBytes(_) => None,
         }
     }
 }
@@ -756,61 +741,50 @@ impl Error for ViewNpyError {
 impl fmt::Display for ViewNpyError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ViewNpyError::Io(err) => write!(f, "I/O error: {}", err),
-            ViewNpyError::ParseHeader(err) => write!(f, "error parsing header: {}", err),
-            ViewNpyError::InvalidData(err) => write!(f, "invalid data for element type: {}", err),
-            ViewNpyError::LengthOverflow => write!(f, "overflow computing length from shape"),
-            ViewNpyError::WrongNdim(expected, actual) => write!(
+            Self::Io(err) => write!(f, "I/O error: {err}"),
+            Self::ParseHeader(err) => write!(f, "error parsing header: {err}"),
+            Self::InvalidData(err) => write!(f, "invalid data for element type: {err}"),
+            Self::LengthOverflow => write!(f, "overflow computing length from shape"),
+            Self::WrongNdim(expected, actual) => write!(
                 f,
-                "ndim {} of array did not match Dimension type with NDIM = {:?}",
-                actual, expected
+                "ndim {actual} of array did not match Dimension type with NDIM = {expected:?}"
             ),
-            ViewNpyError::WrongDescriptor(desc) => {
-                write!(f, "incorrect descriptor ({}) for this type", desc)
-            }
-            ViewNpyError::NonNativeEndian => {
-                write!(f, "descriptor does not match native endianness")
-            }
-            ViewNpyError::MisalignedData => write!(
+            Self::WrongDescriptor(desc) => write!(f, "incorrect descriptor ({desc}) for this type"),
+            Self::NonNativeEndian => write!(f, "descriptor does not match native endianness"),
+            Self::MisalignedData => write!(
                 f,
                 "start of data is not properly aligned for the element type"
             ),
-            ViewNpyError::MissingBytes(num_missing_bytes) => write!(
-                f,
-                "missing {} bytes of data specified in header",
-                num_missing_bytes
-            ),
-            ViewNpyError::ExtraBytes(num_extra_bytes) => {
-                write!(f, "file had {} extra bytes before EOF", num_extra_bytes)
-            }
+            Self::MissingBytes(num) => write!(f, "missing {num} bytes of data specified in header"),
+            Self::ExtraBytes(num) => write!(f, "file had {num} extra bytes before EOF"),
         }
     }
 }
 
 impl From<ReadHeaderError> for ViewNpyError {
-    fn from(err: ReadHeaderError) -> ViewNpyError {
+    fn from(err: ReadHeaderError) -> Self {
         match err {
-            ReadHeaderError::Io(err) => ViewNpyError::Io(err),
-            ReadHeaderError::Parse(err) => ViewNpyError::ParseHeader(err),
+            ReadHeaderError::Io(err) => Self::Io(err),
+            ReadHeaderError::Parse(err) => Self::ParseHeader(err),
         }
     }
 }
 
 impl From<ParseHeaderError> for ViewNpyError {
-    fn from(err: ParseHeaderError) -> ViewNpyError {
-        ViewNpyError::ParseHeader(err)
+    fn from(err: ParseHeaderError) -> Self {
+        Self::ParseHeader(err)
     }
 }
 
 impl From<ViewDataError> for ViewNpyError {
-    fn from(err: ViewDataError) -> ViewNpyError {
+    fn from(err: ViewDataError) -> Self {
         match err {
-            ViewDataError::WrongDescriptor(desc) => ViewNpyError::WrongDescriptor(desc),
-            ViewDataError::NonNativeEndian => ViewNpyError::NonNativeEndian,
-            ViewDataError::Misaligned => ViewNpyError::MisalignedData,
-            ViewDataError::MissingBytes(nbytes) => ViewNpyError::MissingBytes(nbytes),
-            ViewDataError::ExtraBytes(nbytes) => ViewNpyError::ExtraBytes(nbytes),
-            ViewDataError::InvalidData(err) => ViewNpyError::InvalidData(err),
+            ViewDataError::WrongDescriptor(desc) => Self::WrongDescriptor(desc),
+            ViewDataError::NonNativeEndian => Self::NonNativeEndian,
+            ViewDataError::Misaligned => Self::MisalignedData,
+            ViewDataError::MissingBytes(nbytes) => Self::MissingBytes(nbytes),
+            ViewDataError::ExtraBytes(nbytes) => Self::ExtraBytes(nbytes),
+            ViewDataError::InvalidData(err) => Self::InvalidData(err),
         }
     }
 }

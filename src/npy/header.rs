@@ -31,9 +31,9 @@ pub enum ParseHeaderError {
     /// to be ASCII.
     Utf8Parse(std::str::Utf8Error),
     UnknownKey(PyValue),
-    MissingKey(String),
+    MissingKey(&'static str),
     IllegalValue {
-        key: String,
+        key: &'static str,
         value: PyValue,
     },
     DictParse(PyValueParseError),
@@ -43,51 +43,49 @@ pub enum ParseHeaderError {
 
 impl Error for ParseHeaderError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
-        use ParseHeaderError::*;
         match self {
-            MagicString => None,
-            Version { .. } => None,
-            HeaderLengthOverflow(_) => None,
-            NonAscii => None,
-            Utf8Parse(err) => Some(err),
-            UnknownKey(_) => None,
-            MissingKey(_) => None,
-            IllegalValue { .. } => None,
-            DictParse(err) => Some(err),
-            MetaNotDict(_) => None,
-            MissingNewline => None,
+            Self::MagicString => None,
+            Self::Version { .. } => None,
+            Self::HeaderLengthOverflow(_) => None,
+            Self::NonAscii => None,
+            Self::Utf8Parse(err) => Some(err),
+            Self::UnknownKey(_) => None,
+            Self::MissingKey(_) => None,
+            Self::IllegalValue { .. } => None,
+            Self::DictParse(err) => Some(err),
+            Self::MetaNotDict(_) => None,
+            Self::MissingNewline => None,
         }
     }
 }
 
 impl fmt::Display for ParseHeaderError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use ParseHeaderError::*;
         match self {
-            MagicString => write!(f, "start does not match magic string"),
-            Version { major, minor } => write!(f, "unknown version number: {}.{}", major, minor),
-            HeaderLengthOverflow(header_len) => write!(f, "HEADER_LEN {} does not fit in `usize`", header_len),
-            NonAscii => write!(f, "non-ascii in array format string; this is not supported in .npy format versions 1.0 and 2.0"),
-            Utf8Parse(err) => write!(f, "error parsing array format string as UTF-8: {}", err),
-            UnknownKey(key) => write!(f, "unknown key: {}", key),
-            MissingKey(key) => write!(f, "missing key: {}", key),
-            IllegalValue { key, value } => write!(f, "illegal value for key {}: {}", key, value),
-            DictParse(err) => write!(f, "error parsing metadata dict: {}", err),
-            MetaNotDict(value) => write!(f, "metadata is not a dict: {}", value),
-            MissingNewline => write!(f, "newline missing at end of header"),
+            Self::MagicString => write!(f, "start does not match magic string"),
+            Self::Version { major, minor } => write!(f, "unknown version number: {major}.{minor}"),
+            Self::HeaderLengthOverflow(len) => write!(f, "HEADER_LEN {len} does not fit in `usize`"),
+            Self::NonAscii => write!(f, "non-ascii in array format string; this is not supported in .npy format versions 1.0 and 2.0"),
+            Self::Utf8Parse(err) => write!(f, "error parsing array format string as UTF-8: {err}"),
+            Self::UnknownKey(key) => write!(f, "unknown key: {key}"),
+            Self::MissingKey(key) => write!(f, "missing key: {key}"),
+            Self::IllegalValue { key, value } => write!(f, "illegal value for key {key}: {value}"),
+            Self::DictParse(err) => write!(f, "error parsing metadata dict: {err}"),
+            Self::MetaNotDict(value) => write!(f, "metadata is not a dict: {value}"),
+            Self::MissingNewline => write!(f, "newline missing at end of header"),
         }
     }
 }
 
 impl From<std::str::Utf8Error> for ParseHeaderError {
-    fn from(err: std::str::Utf8Error) -> ParseHeaderError {
-        ParseHeaderError::Utf8Parse(err)
+    fn from(err: std::str::Utf8Error) -> Self {
+        Self::Utf8Parse(err)
     }
 }
 
 impl From<PyValueParseError> for ParseHeaderError {
-    fn from(err: PyValueParseError) -> ParseHeaderError {
-        ParseHeaderError::DictParse(err)
+    fn from(err: PyValueParseError) -> Self {
+        Self::DictParse(err)
     }
 }
 
@@ -100,8 +98,8 @@ pub enum ReadHeaderError {
 impl Error for ReadHeaderError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            ReadHeaderError::Io(err) => Some(err),
-            ReadHeaderError::Parse(err) => Some(err),
+            Self::Io(err) => Some(err),
+            Self::Parse(err) => Some(err),
         }
     }
 }
@@ -109,26 +107,27 @@ impl Error for ReadHeaderError {
 impl fmt::Display for ReadHeaderError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ReadHeaderError::Io(err) => write!(f, "I/O error: {}", err),
-            ReadHeaderError::Parse(err) => write!(f, "error parsing header: {}", err),
+            Self::Io(err) => write!(f, "I/O error: {}", err),
+            Self::Parse(err) => write!(f, "error parsing header: {}", err),
         }
     }
 }
 
 impl From<io::Error> for ReadHeaderError {
-    fn from(err: io::Error) -> ReadHeaderError {
-        ReadHeaderError::Io(err)
+    fn from(err: io::Error) -> Self {
+        Self::Io(err)
     }
 }
 
 impl From<ParseHeaderError> for ReadHeaderError {
-    fn from(err: ParseHeaderError) -> ReadHeaderError {
-        ReadHeaderError::Parse(err)
+    fn from(err: ParseHeaderError) -> Self {
+        Self::Parse(err)
     }
 }
 
 #[derive(Clone, Copy)]
 #[allow(non_camel_case_types)]
+#[non_exhaustive]
 enum Version {
     V1_0,
     V2_0,
@@ -140,18 +139,17 @@ impl Version {
     /// byte for minor version).
     const VERSION_NUM_BYTES: usize = 2;
 
-    fn from_bytes(bytes: &[u8]) -> Result<Self, ParseHeaderError> {
-        debug_assert_eq!(bytes.len(), Self::VERSION_NUM_BYTES);
-        match (bytes[0], bytes[1]) {
-            (0x01, 0x00) => Ok(Version::V1_0),
-            (0x02, 0x00) => Ok(Version::V2_0),
-            (0x03, 0x00) => Ok(Version::V3_0),
-            (major, minor) => Err(ParseHeaderError::Version { major, minor }),
+    fn from_array(bytes: [u8; Self::VERSION_NUM_BYTES]) -> Result<Self, ParseHeaderError> {
+        match bytes {
+            [0x01, 0x00] => Ok(Version::V1_0),
+            [0x02, 0x00] => Ok(Version::V2_0),
+            [0x03, 0x00] => Ok(Version::V3_0),
+            [major, minor] => Err(ParseHeaderError::Version { major, minor }),
         }
     }
 
     /// Major version number.
-    fn major_version(self) -> u8 {
+    const fn major_version(self) -> u8 {
         match self {
             Version::V1_0 => 1,
             Version::V2_0 => 2,
@@ -160,7 +158,7 @@ impl Version {
     }
 
     /// Major version number.
-    fn minor_version(self) -> u8 {
+    const fn minor_version(self) -> u8 {
         match self {
             Version::V1_0 => 0,
             Version::V2_0 => 0,
@@ -169,7 +167,7 @@ impl Version {
     }
 
     /// Number of bytes in representation of header length.
-    fn header_len_num_bytes(self) -> usize {
+    const fn header_len_num_bytes(self) -> usize {
         match self {
             Version::V1_0 => 2,
             Version::V2_0 | Version::V3_0 => 4,
@@ -177,7 +175,7 @@ impl Version {
     }
 
     /// Read header length.
-    fn read_header_len<R: io::Read>(self, reader: &mut R) -> Result<usize, ReadHeaderError> {
+    fn read_header_len<R: io::Read>(self, mut reader: R) -> Result<usize, ReadHeaderError> {
         match self {
             Version::V1_0 => Ok(usize::from(reader.read_u16::<LittleEndian>()?)),
             Version::V2_0 | Version::V3_0 => {
@@ -195,7 +193,7 @@ impl Version {
     fn format_header_len(self, header_len: usize) -> Option<Vec<u8>> {
         match self {
             Version::V1_0 => {
-                let header_len: u16 = u16::try_from(header_len).ok()?;
+                let header_len = u16::try_from(header_len).ok()?;
                 let mut out = vec![0; self.header_len_num_bytes()];
                 LittleEndian::write_u16(&mut out, header_len);
                 Some(out)
@@ -219,16 +217,16 @@ impl Version {
     /// value of `HEADER_LEN` is too large for this .npy version.
     fn compute_lengths(self, unpadded_arr_format: &[u8]) -> Option<HeaderLengthInfo> {
         /// Length of a '\n' char in bytes.
-        const NEWLINE_LEN: usize = 1;
+        const NEWLINE_LEN: usize = b"\n".len();
 
-        let prefix_len: usize =
+        let prefix_len =
             MAGIC_STRING.len() + Version::VERSION_NUM_BYTES + self.header_len_num_bytes();
-        let unpadded_total_len: usize = prefix_len
+        let unpadded_total_len = prefix_len
             .checked_add(unpadded_arr_format.len())?
             .checked_add(NEWLINE_LEN)?;
-        let padding_len: usize = HEADER_DIVISOR - unpadded_total_len % HEADER_DIVISOR;
-        let total_len: usize = unpadded_total_len.checked_add(padding_len)?;
-        let header_len: usize = total_len - prefix_len;
+        let padding_len = HEADER_DIVISOR - unpadded_total_len % HEADER_DIVISOR;
+        let total_len = unpadded_total_len.checked_add(padding_len)?;
+        let header_len = total_len - prefix_len;
         let formatted_header_len = self.format_header_len(header_len)?;
         Some(HeaderLengthInfo { total_len, formatted_header_len })
     }
@@ -254,8 +252,8 @@ pub enum FormatHeaderError {
 impl Error for FormatHeaderError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            FormatHeaderError::PyValue(err) => Some(err),
-            FormatHeaderError::HeaderTooLong => None,
+            Self::PyValue(err) => Some(err),
+            Self::HeaderTooLong => None,
         }
     }
 }
@@ -263,15 +261,15 @@ impl Error for FormatHeaderError {
 impl fmt::Display for FormatHeaderError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            FormatHeaderError::PyValue(err) => write!(f, "error formatting Python value: {}", err),
-            FormatHeaderError::HeaderTooLong => write!(f, "the header is too long"),
+            Self::PyValue(err) => write!(f, "error formatting Python value: {err}"),
+            Self::HeaderTooLong => write!(f, "the header is too long"),
         }
     }
 }
 
 impl From<PyValueFormatError> for FormatHeaderError {
-    fn from(err: PyValueFormatError) -> FormatHeaderError {
-        FormatHeaderError::PyValue(err)
+    fn from(err: PyValueFormatError) -> Self {
+        Self::PyValue(err)
     }
 }
 
@@ -284,8 +282,8 @@ pub enum WriteHeaderError {
 impl Error for WriteHeaderError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            WriteHeaderError::Io(err) => Some(err),
-            WriteHeaderError::Format(err) => Some(err),
+            Self::Io(err) => Some(err),
+            Self::Format(err) => Some(err),
         }
     }
 }
@@ -293,21 +291,21 @@ impl Error for WriteHeaderError {
 impl fmt::Display for WriteHeaderError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            WriteHeaderError::Io(err) => write!(f, "I/O error: {}", err),
-            WriteHeaderError::Format(err) => write!(f, "error formatting header: {}", err),
+            Self::Io(err) => write!(f, "I/O error: {err}"),
+            Self::Format(err) => write!(f, "error formatting header: {err}"),
         }
     }
 }
 
 impl From<io::Error> for WriteHeaderError {
-    fn from(err: io::Error) -> WriteHeaderError {
-        WriteHeaderError::Io(err)
+    fn from(err: io::Error) -> Self {
+        Self::Io(err)
     }
 }
 
 impl From<FormatHeaderError> for WriteHeaderError {
-    fn from(err: FormatHeaderError) -> WriteHeaderError {
-        WriteHeaderError::Format(err)
+    fn from(err: FormatHeaderError) -> Self {
+        Self::Format(err)
     }
 }
 
@@ -320,94 +318,85 @@ pub(crate) struct Header {
 
 impl fmt::Display for Header {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "{}", self.to_py_value())
+        self.to_py_value().fmt(f)
     }
 }
 
 impl Header {
     fn from_py_value(value: PyValue) -> Result<Self, ParseHeaderError> {
-        if let PyValue::Dict(dict) = value {
-            let mut type_descriptor: Option<PyValue> = None;
-            let mut fortran_order: Option<bool> = None;
-            let mut shape: Option<Vec<usize>> = None;
-            for (key, value) in dict {
-                match key {
-                    PyValue::String(ref k) if k == "descr" => {
-                        type_descriptor = Some(value);
-                    }
-                    PyValue::String(ref k) if k == "fortran_order" => {
-                        if let PyValue::Boolean(b) = value {
-                            fortran_order = Some(b);
-                        } else {
-                            return Err(ParseHeaderError::IllegalValue {
-                                key: "fortran_order".to_owned(),
-                                value,
-                            });
-                        }
-                    }
-                    PyValue::String(ref k) if k == "shape" => {
-                        fn parse_shape(value: &PyValue) -> Option<Vec<usize>> {
-                            value
-                                .as_tuple()?
-                                .iter()
-                                .map(|elem| elem.as_integer()?.to_usize())
-                                .collect()
-                        }
-                        if let Some(s) = parse_shape(&value) {
-                            shape = Some(s);
-                        } else {
-                            return Err(ParseHeaderError::IllegalValue {
-                                key: "shape".to_owned(),
-                                value,
-                            });
-                        }
-                    }
-                    k => return Err(ParseHeaderError::UnknownKey(k)),
+        let PyValue::Dict(dict) = value else {
+            return Err(ParseHeaderError::MetaNotDict(value));
+        };
+        let mut type_descriptor = None;
+        let mut fortran_order = None;
+        let mut shape = None;
+        for (key, value) in dict {
+            match &key {
+                PyValue::String(k) if k == "descr" => {
+                    type_descriptor = Some(value);
                 }
-            }
-            match (type_descriptor, fortran_order, shape) {
-                (Some(type_descriptor), Some(fortran_order), Some(shape)) => {
-                    Ok(Header { type_descriptor, fortran_order, shape })
+                PyValue::String(k) if k == "fortran_order" => {
+                    if let PyValue::Boolean(b) = value {
+                        fortran_order = Some(b);
+                    } else {
+                        return Err(ParseHeaderError::IllegalValue { key: "fortran_order", value });
+                    }
                 }
-                (None, _, _) => Err(ParseHeaderError::MissingKey("descr".to_owned())),
-                (_, None, _) => Err(ParseHeaderError::MissingKey("fortran_order".to_owned())),
-                (_, _, None) => Err(ParseHeaderError::MissingKey("shaper".to_owned())),
+                PyValue::String(k) if k == "shape" => {
+                    fn parse_shape(value: &PyValue) -> Option<Vec<usize>> {
+                        value
+                            .as_tuple()?
+                            .iter()
+                            .map(|elem| elem.as_integer()?.to_usize())
+                            .collect()
+                    }
+                    if let Some(s) = parse_shape(&value) {
+                        shape = Some(s);
+                    } else {
+                        return Err(ParseHeaderError::IllegalValue { key: "shape", value });
+                    }
+                }
+                _ => return Err(ParseHeaderError::UnknownKey(key)),
             }
-        } else {
-            Err(ParseHeaderError::MetaNotDict(value))
         }
+        let type_descriptor = type_descriptor.ok_or(ParseHeaderError::MissingKey("descr"))?;
+        let fortran_order = fortran_order.ok_or(ParseHeaderError::MissingKey("fortran_order"))?;
+        let shape = shape.ok_or(ParseHeaderError::MissingKey("shaper"))?;
+        Ok(Self { type_descriptor, fortran_order, shape })
     }
 
-    pub fn from_reader<R: io::Read>(reader: &mut R) -> Result<Self, ReadHeaderError> {
-        // Check for magic string.
-        let mut buf = vec![0; MAGIC_STRING.len()];
-        reader.read_exact(&mut buf)?;
-        if buf != MAGIC_STRING {
-            return Err(ParseHeaderError::MagicString.into());
+    pub(crate) fn from_reader<R: io::Read>(mut reader: R) -> Result<Self, ReadHeaderError> {
+        // Check for magic string
+        {
+            let mut buf = [0; MAGIC_STRING.len()];
+            reader.read_exact(&mut buf)?;
+            if buf != MAGIC_STRING {
+                Err(ParseHeaderError::MagicString)?;
+            }
         }
 
-        // Get version number.
+        // Get version number
         let mut buf = [0; Version::VERSION_NUM_BYTES];
         reader.read_exact(&mut buf)?;
-        let version = Version::from_bytes(&buf)?;
+        let version = Version::from_array(buf)?;
 
-        // Get `HEADER_LEN`.
-        let header_len = version.read_header_len(reader)?;
+        // Get `HEADER_LEN`
+        let header_len = version.read_header_len(&mut reader)?;
 
-        // Parse the dictionary describing the array's format.
+        // Parse the dictionary describing the array's format
         let mut buf = vec![0; header_len];
         reader.read_exact(&mut buf)?;
         let without_newline = match buf.split_last() {
             Some((&b'\n', rest)) => rest,
-            Some(_) | None => return Err(ParseHeaderError::MissingNewline.into()),
+            Some(_) | None => Err(ParseHeaderError::MissingNewline)?,
         };
         let header_str = match version {
             Version::V1_0 | Version::V2_0 => {
                 if without_newline.is_ascii() {
-                    // ASCII strings are always valid UTF-8.
+                    // ASCII strings are always valid UTF-8
                     unsafe { std::str::from_utf8_unchecked(without_newline) }
                 } else {
-                    return Err(ParseHeaderError::NonAscii.into());
+                    Err(ParseHeaderError::NonAscii)?
                 }
             }
             Version::V3_0 => {
@@ -415,21 +404,21 @@ impl Header {
             }
         };
         let arr_format: PyValue = header_str.parse().map_err(ParseHeaderError::from)?;
-        Ok(Header::from_py_value(arr_format)?)
+        Ok(Self::from_py_value(arr_format)?)
     }
 
     fn to_py_value(&self) -> PyValue {
         PyValue::Dict(vec![
             (
-                PyValue::String("descr".into()),
+                PyValue::String("descr".to_string()),
                 self.type_descriptor.clone(),
             ),
             (
-                PyValue::String("fortran_order".into()),
+                PyValue::String("fortran_order".to_string()),
                 PyValue::Boolean(self.fortran_order),
             ),
             (
-                PyValue::String("shape".into()),
+                PyValue::String("shape".to_string()),
                 PyValue::Tuple(
                     self.shape
                         .iter()
@@ -440,8 +429,8 @@ impl Header {
         ])
     }
 
-    pub fn to_bytes(&self) -> Result<Vec<u8>, FormatHeaderError> {
-        // Metadata describing array's format as ASCII string.
+    fn to_bytes(&self) -> Result<Vec<u8>, FormatHeaderError> {
+        // Metadata describing array's format as ASCII string
         let mut arr_format = Vec::new();
         self.to_py_value().write_ascii(&mut arr_format)?;
 
@@ -452,7 +441,7 @@ impl Header {
             .find_map(|&version| Some((version, version.compute_lengths(&arr_format)?)))
             .ok_or(FormatHeaderError::HeaderTooLong)?;
 
-        // Write the header.
+        // Write the header
         let mut out = Vec::with_capacity(length_info.total_len);
         out.extend_from_slice(MAGIC_STRING);
         out.push(version.major_version());
@@ -462,16 +451,15 @@ impl Header {
         out.resize(length_info.total_len - 1, b' ');
         out.push(b'\n');
 
-        // Verify the length of the header.
+        // Verify the length of the header
         debug_assert_eq!(out.len(), length_info.total_len);
         debug_assert_eq!(out.len() % HEADER_DIVISOR, 0);
 
         Ok(out)
     }
 
-    pub fn write<W: io::Write>(&self, mut writer: W) -> Result<(), WriteHeaderError> {
-        let bytes = self.to_bytes()?;
-        writer.write_all(&bytes)?;
+    pub(crate) fn write<W: io::Write>(&self, mut writer: W) -> Result<(), WriteHeaderError> {
+        writer.write_all(&self.to_bytes()?)?;
         Ok(())
     }
 }
