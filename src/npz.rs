@@ -63,7 +63,7 @@ impl From<WriteNpyError> for WriteNpzError {
 ///
 /// ```no_run
 /// use ndarray::{array, aview0, Array1, Array2};
-/// use ndarray_npy::NpzWriter;
+/// use npz::NpzWriter;
 /// use std::fs::File;
 ///
 /// let mut npz = NpzWriter::new(File::create("arrays.npz")?);
@@ -190,7 +190,7 @@ impl From<ReadNpyError> for ReadNpzError {
 ///
 /// ```no_run
 /// use ndarray::{Array1, Array2};
-/// use ndarray_npy::NpzReader;
+/// use npz::NpzReader;
 /// use std::fs::File;
 ///
 /// let mut npz = NpzReader::new(File::open("arrays.npz")?)?;

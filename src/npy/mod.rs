@@ -24,8 +24,8 @@ use std::{
 ///
 /// ```
 /// use ndarray::Array2;
-/// use ndarray_npy::read_npy;
-/// # use ndarray_npy::ReadNpyError;
+/// use npz::read_npy;
+/// # use npz::ReadNpyError;
 ///
 /// let arr: Array2<i32> = read_npy("resources/array.npy")?;
 /// # println!("arr = {}", arr);
@@ -51,8 +51,8 @@ where
 ///
 /// ```no_run
 /// use ndarray::array;
-/// use ndarray_npy::write_npy;
-/// # use ndarray_npy::WriteNpyError;
+/// use npz::write_npy;
+/// # use npz::WriteNpyError;
 ///
 /// let arr = array![[1, 2, 3], [4, 5, 6]];
 /// write_npy("array.npy", &arr)?;
@@ -137,7 +137,7 @@ where
 /// ```no_run
 /// use memmap2::MmapMut;
 /// use ndarray::ArrayViewMut3;
-/// use ndarray_npy::{write_zeroed_npy, ViewMutNpyExt};
+/// use npz::{write_zeroed_npy, ViewMutNpyExt};
 /// use std::fs::{File, OpenOptions};
 ///
 /// let path = "array.npy";
@@ -305,9 +305,9 @@ impl From<WriteDataError> for WriteNpyError {
 ///
 /// ```no_run
 /// use ndarray::{array, Array2};
-/// use ndarray_npy::WriteNpyExt;
+/// use npz::WriteNpyExt;
 /// use std::{fs::File, io::BufWriter};
-/// # use ndarray_npy::WriteNpyError;
+/// # use npz::WriteNpyError;
 ///
 /// let arr: Array2<i32> = array![[1, 2, 3], [4, 5, 6]];
 /// let writer = BufWriter::new(File::create("array.npy")?);
@@ -535,9 +535,9 @@ impl From<ReadDataError> for ReadNpyError {
 ///
 /// ```
 /// use ndarray::Array2;
-/// use ndarray_npy::ReadNpyExt;
+/// use npz::ReadNpyExt;
 /// use std::fs::File;
-/// # use ndarray_npy::ReadNpyError;
+/// # use npz::ReadNpyError;
 ///
 /// let reader = File::open("resources/array.npy")?;
 /// let arr = Array2::<i32>::read_npy(reader)?;
@@ -711,7 +711,7 @@ impl From<ViewDataError> for ViewNpyError {
 /// # if !cfg!(miri) { // Miri doesn't support mmap.
 /// use memmap2::Mmap;
 /// use ndarray::ArrayView2;
-/// use ndarray_npy::ViewNpyExt;
+/// use npz::ViewNpyExt;
 /// use std::fs::File;
 ///
 /// let file = File::open("resources/array.npy")?;
@@ -761,7 +761,7 @@ pub trait ViewNpyExt<'a>: Sized {
 /// # if !cfg!(miri) { // Miri doesn't support mmap.
 /// use memmap2::MmapMut;
 /// use ndarray::ArrayViewMut2;
-/// use ndarray_npy::ViewMutNpyExt;
+/// use npz::ViewMutNpyExt;
 /// use std::fs;
 ///
 /// let file = fs::OpenOptions::new()
