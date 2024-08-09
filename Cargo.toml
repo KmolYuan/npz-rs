@@ -1,10 +1,9 @@
 [package]
-name = "ndarray-npy"
-version = "0.8.1"
-authors = ["Jim Turner <ndarray-npy@turner.link>"]
+name = "npz"
+version = "0.1.0"
+authors = ["KmolYuan <pyslvs@gmail.com>"]
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/jturner314/ndarray-npy"
-documentation = "https://docs.rs/ndarray-npy"
+repository = "https://github.com/KmolYuan/npz-rs"
 description = ".npy and .npz file format support for ndarray"
 keywords = ["npy", "npz", "ndarray", "numpy", "array"]
 categories = ["parser-implementations", "encoding", "science"]

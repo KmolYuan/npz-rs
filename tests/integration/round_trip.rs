@@ -3,7 +3,7 @@
 use crate::MaybeAlignedBytes;
 use ndarray::array;
 use ndarray::prelude::*;
-use ndarray_npy::{
+use npz::{
     ReadNpyExt, ReadableElement, ViewElement, ViewMutElement, ViewMutNpyExt, ViewNpyExt,
     WritableElement, WriteNpyExt,
 };

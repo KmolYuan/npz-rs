@@ -1,5 +1,5 @@
 use ndarray::{array, Array2};
-use ndarray_npy::{ReadNpyError, ReadNpyExt, WriteNpyError, WriteNpyExt};
+use npz::{ReadNpyError, ReadNpyExt, WriteNpyError, WriteNpyExt};
 use std::fs::File;
 use std::io::BufWriter;
 

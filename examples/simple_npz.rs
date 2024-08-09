@@ -1,5 +1,5 @@
 use ndarray::{array, Array1, Array2};
-use ndarray_npy::{NpzReader, NpzWriter};
+use npz::{NpzReader, NpzWriter};
 use std::fs::File;
 
 fn write_example() -> Result<(), Box<dyn std::error::Error>> {

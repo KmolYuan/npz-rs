@@ -3,7 +3,7 @@
 use crate::{file_to_aligned_bytes, file_to_aligned_mut_bytes, MaybeAlignedBytes};
 use ndarray::prelude::*;
 use ndarray::Slice;
-use ndarray_npy::{
+use npz::{
     write_zeroed_npy, ReadNpyError, ReadNpyExt, ViewMutNpyExt, ViewNpyError, ViewNpyExt,
     WriteNpyExt,
 };

@@ -1,7 +1,7 @@
 //! Tests for `*Element` trait implementations for primitives.
 
 use crate::MaybeAlignedBytes;
-use ndarray_npy::{
+use npz::{
     ReadDataError, ReadableElement, ViewDataError, ViewElement, ViewMutElement, WritableElement,
 };
 use py_literal::Value as PyValue;
