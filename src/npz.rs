@@ -1,14 +1,13 @@
 use crate::{
     ReadNpyError, ReadNpyExt, ReadableElement, WritableElement, WriteNpyError, WriteNpyExt,
 };
-use ndarray::prelude::*;
-use ndarray::{Data, DataOwned};
-use std::error::Error;
-use std::fmt;
-use std::io::{BufWriter, Read, Seek, Write};
-use zip::result::ZipError;
-use zip::write::SimpleFileOptions;
-use zip::{CompressionMethod, ZipArchive, ZipWriter};
+use ndarray::{prelude::*, Data, DataOwned};
+use std::{
+    error::Error,
+    fmt,
+    io::{BufWriter, Read, Seek, Write},
+};
+use zip::{result::ZipError, write::SimpleFileOptions, CompressionMethod, ZipArchive, ZipWriter};
 
 /// An error writing a `.npz` file.
 #[derive(Debug)]
@@ -92,7 +91,8 @@ impl<W: Write + Seek> NpzWriter<W> {
         }
     }
 
-    /// Creates a new `.npz` file with compression. See [`numpy.savez_compressed`].
+    /// Creates a new `.npz` file with compression. See
+    /// [`numpy.savez_compressed`].
     ///
     /// [`numpy.savez_compressed`]: https://docs.scipy.org/doc/numpy/reference/generated/numpy.savez_compressed.html
     #[cfg(feature = "compressed_npz")]
@@ -105,8 +105,8 @@ impl<W: Write + Seek> NpzWriter<W> {
 
     /// Adds an array with the specified `name` to the `.npz` file.
     ///
-    /// To write a scalar value, create a zero-dimensional array using [`arr0`](ndarray::arr0) or
-    /// [`aview0`](ndarray::aview0).
+    /// To write a scalar value, create a zero-dimensional array using
+    /// [`arr0`](ndarray::arr0) or [`aview0`](ndarray::aview0).
     pub fn add_array<N, S, D>(
         &mut self,
         name: N,
@@ -205,9 +205,7 @@ pub struct NpzReader<R: Read + Seek> {
 impl<R: Read + Seek> NpzReader<R> {
     /// Creates a new `.npz` file reader.
     pub fn new(reader: R) -> Result<NpzReader<R>, ReadNpzError> {
-        Ok(NpzReader {
-            zip: ZipArchive::new(reader)?,
-        })
+        Ok(NpzReader { zip: ZipArchive::new(reader)? })
     }
 
     /// Returns `true` iff the `.npz` file doesn't contain any arrays.

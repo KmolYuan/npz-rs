@@ -5,9 +5,7 @@ use npz::{
     ReadDataError, ReadableElement, ViewDataError, ViewElement, ViewMutElement, WritableElement,
 };
 use py_literal::Value as PyValue;
-use std::convert::TryInto;
-use std::io::Cursor;
-use std::mem;
+use std::{convert::TryInto, io::Cursor, mem};
 
 #[test]
 fn view_i32() {

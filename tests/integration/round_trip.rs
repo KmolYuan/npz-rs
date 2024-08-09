@@ -1,23 +1,21 @@
 //! Tests that read/viewed data match the original written data.
 
 use crate::MaybeAlignedBytes;
-use ndarray::array;
-use ndarray::prelude::*;
+use ndarray::{array, prelude::*};
 use npz::{
     ReadNpyExt, ReadableElement, ViewElement, ViewMutElement, ViewMutNpyExt, ViewNpyExt,
     WritableElement, WriteNpyExt,
 };
-use num_complex_0_4::Complex;
-use std::fmt::Debug;
-use std::mem;
+use num_complex::Complex;
+use std::{fmt::Debug, mem};
 
 /// Tests the following:
 ///
 /// - Writing the array as an `.npy` file and reading it back again or viewing
 ///   it doesn't change the shape or data.
 ///
-/// - Modifying an `ArrayViewMut` created with `ViewMutNpyExt` correctly
-///   changes the underlying data.
+/// - Modifying an `ArrayViewMut` created with `ViewMutNpyExt` correctly changes
+///   the underlying data.
 fn test_round_trip_single_layout<A, D, F>(
     original: ArrayView<'_, A, D>,
     modified: ArrayView<'_, A, D>,

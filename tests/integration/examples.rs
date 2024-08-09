@@ -1,16 +1,17 @@
 //! Miscellaneous example cases.
 
 use crate::{file_to_aligned_bytes, file_to_aligned_mut_bytes, MaybeAlignedBytes};
-use ndarray::prelude::*;
-use ndarray::Slice;
+use ndarray::{prelude::*, Slice};
 use npz::{
     write_zeroed_npy, ReadNpyError, ReadNpyExt, ViewMutNpyExt, ViewNpyError, ViewNpyExt,
     WriteNpyExt,
 };
-use num_complex_0_4::Complex;
-use std::fs::{self, File};
-use std::io::{Read, Seek, SeekFrom, Write};
-use std::mem;
+use num_complex::Complex;
+use std::{
+    fs::{self, File},
+    io::{Read, Seek, SeekFrom, Write},
+    mem,
+};
 
 #[test]
 fn write_f64_standard() {

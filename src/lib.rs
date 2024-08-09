@@ -17,7 +17,8 @@
 //! - Writing
 //!   - [`WriteNpyExt`] extension trait
 //!   - [`write_npy`] convenience function
-//!   - [`write_zeroed_npy`] to write an `.npy` file (sparse if possible) of zeroed data
+//!   - [`write_zeroed_npy`] to write an `.npy` file (sparse if possible) of
+//!     zeroed data
 //! - Readonly viewing (primarily for use with memory-mapped files)
 //!   - [`ViewNpyExt`] extension trait
 //! - Mutable viewing (primarily for use with memory-mapped files)

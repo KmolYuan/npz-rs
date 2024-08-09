@@ -1,7 +1,6 @@
 use ndarray::{array, Array2};
 use npz::{ReadNpyError, ReadNpyExt, WriteNpyError, WriteNpyExt};
-use std::fs::File;
-use std::io::BufWriter;
+use std::{fs::File, io::BufWriter};
 
 fn write_example() -> Result<(), WriteNpyError> {
     let arr: Array2<i32> = array![[1, 2, 3], [4, 5, 6]];

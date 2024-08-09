@@ -1,9 +1,7 @@
 //! Implementations of the `*Element` traits.
 
 use crate::{ReadDataError, ViewDataError};
-use std::io;
-use std::mem;
-use std::slice;
+use std::{io, mem, slice};
 
 /// Returns `Ok(_)` iff the `reader` had no more bytes on entry to this
 /// function.
@@ -18,8 +16,8 @@ fn check_for_extra_bytes<R: io::Read>(reader: &mut R) -> Result<(), ReadDataErro
     }
 }
 
-/// Returns `Ok(_)` iff a slice containing `bytes_len` bytes is the correct length to cast to
-/// a slice with element type `T` and length `len`.
+/// Returns `Ok(_)` iff a slice containing `bytes_len` bytes is the correct
+/// length to cast to a slice with element type `T` and length `len`.
 ///
 /// **Panics** if `len * size_of::<T>()` overflows.
 fn check_bytes_len<T>(bytes_len: usize, len: usize) -> Result<(), ViewDataError> {
@@ -196,6 +194,6 @@ macro_rules! impl_writable_element_always_valid_cast {
     };
 }
 
-#[cfg(feature = "num-complex-0_4")]
+#[cfg(feature = "num-complex")]
 mod complex;
 mod primitive;

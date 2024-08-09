@@ -4,10 +4,7 @@ use super::{bytes_as_mut_slice, bytes_as_slice, check_for_extra_bytes};
 use crate::{ReadDataError, ReadableElement, ViewDataError, ViewElement, ViewMutElement};
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use py_literal::Value as PyValue;
-use std::error::Error;
-use std::fmt;
-use std::io;
-use std::mem;
+use std::{error::Error, fmt, io, mem};
 
 macro_rules! impl_readable_primitive_one_byte {
     ($elem:ty, [$($desc:expr),*], $zero:expr, $read_into:ident) => {
@@ -195,16 +192,15 @@ impl ReadableElement for bool {
                     mem::forget(bytes);
                     // This is safe because:
                     //
-                    // * All elements are valid `bool`s. (See the call to
-                    //   `check_valid_for_bool` above.)
+                    // * All elements are valid `bool`s. (See the call to `check_valid_for_bool`
+                    //   above.)
                     //
                     // * `ptr` was originally allocated by `Vec`.
                     //
                     // * `bool` has the same size and alignment as `u8`.
                     //
-                    // * `len` and `cap` are copied directly from the
-                    //   `Vec<u8>`, so `len <= cap` and `cap` is the capacity
-                    //   `ptr` was allocated with.
+                    // * `len` and `cap` are copied directly from the `Vec<u8>`, so `len <= cap` and
+                    //   `cap` is the capacity `ptr` was allocated with.
                     Ok(unsafe { Vec::from_raw_parts(ptr.cast::<bool>(), len, cap) })
                 }
             }

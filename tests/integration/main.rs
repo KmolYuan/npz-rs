@@ -1,9 +1,11 @@
 //! Integration tests.
 
 use memmap2::{Mmap, MmapMut};
-use std::fs::File;
-use std::io::{self, Read};
-use std::ops::{Deref, DerefMut};
+use std::{
+    fs::File,
+    io::{self, Read},
+    ops::{Deref, DerefMut},
+};
 
 mod examples;
 mod primitive;
@@ -47,12 +49,7 @@ impl MaybeAlignedBytes {
     pub fn aligned_zeros(len: usize, align: usize) -> MaybeAlignedBytes {
         let buf = vec![0; len + align];
         let start = align - buf.as_ptr() as usize % align;
-        let out = MaybeAlignedBytes {
-            buf,
-            start,
-            len,
-            align,
-        };
+        let out = MaybeAlignedBytes { buf, start, len, align };
         debug_assert!(out.is_aligned());
         out
     }
@@ -91,12 +88,7 @@ impl MaybeAlignedBytes {
     pub fn aligned_from_bytes(bytes: Vec<u8>, align: usize) -> MaybeAlignedBytes {
         let len = bytes.len();
         if bytes.as_ptr() as usize % align == 0 {
-            MaybeAlignedBytes {
-                buf: bytes,
-                start: 0,
-                len,
-                align,
-            }
+            MaybeAlignedBytes { buf: bytes, start: 0, len, align }
         } else {
             let mut out = MaybeAlignedBytes::aligned_zeros(len, align);
             out.copy_from_slice(&bytes);
@@ -104,7 +96,8 @@ impl MaybeAlignedBytes {
         }
     }
 
-    /// Returns the provided bytes misaligned with respect to specified alignment.
+    /// Returns the provided bytes misaligned with respect to specified
+    /// alignment.
     ///
     /// Copies the data if it's not already misaligned.
     ///
@@ -114,12 +107,7 @@ impl MaybeAlignedBytes {
     pub fn misaligned_from_bytes(bytes: Vec<u8>, align: usize) -> MaybeAlignedBytes {
         let len = bytes.len();
         if bytes.as_ptr() as usize % align != 0 {
-            MaybeAlignedBytes {
-                buf: bytes,
-                start: 0,
-                len,
-                align,
-            }
+            MaybeAlignedBytes { buf: bytes, start: 0, len, align }
         } else {
             let mut out = MaybeAlignedBytes::misaligned_zeros(len, align);
             out.copy_from_slice(&bytes);

@@ -4,15 +4,16 @@ pub mod header;
 use self::header::{
     FormatHeaderError, Header, ParseHeaderError, ReadHeaderError, WriteHeaderError,
 };
-use ndarray::prelude::*;
-use ndarray::{Data, DataOwned, IntoDimension};
+use ndarray::{prelude::*, Data, DataOwned, IntoDimension};
 use py_literal::Value as PyValue;
-use std::convert::TryInto;
-use std::error::Error;
-use std::fmt;
-use std::fs::File;
-use std::io::{self, BufWriter, Seek};
-use std::mem;
+use std::{
+    convert::TryInto,
+    error::Error,
+    fmt,
+    fs::File,
+    io::{self, BufWriter, Seek},
+    mem,
+};
 
 /// Read an `.npy` file located at the specified path.
 ///
@@ -120,9 +121,9 @@ where
 ///     sparse matrices.
 ///
 ///   - Rely on memory overcommitment. In other words, configure the operating
-///     system to allocate more memory than actually exists. However, this
-///     risks the system running out of memory if the data is not as sparse as
-///     you expect.
+///     system to allocate more memory than actually exists. However, this risks
+///     the system running out of memory if the data is not as sparse as you
+///     expect.
 ///
 /// # Example
 ///
@@ -305,8 +306,7 @@ impl From<WriteDataError> for WriteNpyError {
 /// ```no_run
 /// use ndarray::{array, Array2};
 /// use ndarray_npy::WriteNpyExt;
-/// use std::fs::File;
-/// use std::io::BufWriter;
+/// use std::{fs::File, io::BufWriter};
 /// # use ndarray_npy::WriteNpyError;
 ///
 /// let arr: Array2<i32> = array![[1, 2, 3], [4, 5, 6]];
@@ -688,12 +688,12 @@ impl From<ViewDataError> for ViewNpyError {
 /// # Notes
 ///
 /// - For types for which not all bit patterns are valid, such as `bool`, the
-///   implementation iterates over all of the elements when creating the view
-///   to ensure they have a valid bit pattern.
+///   implementation iterates over all of the elements when creating the view to
+///   ensure they have a valid bit pattern.
 ///
 /// - The data in the buffer must be properly aligned for the element type.
-///   Typically, this should not be a concern for memory-mapped files (unless
-///   an option like `MAP_FIXED` is used), since memory mappings are usually
+///   Typically, this should not be a concern for memory-mapped files (unless an
+///   option like `MAP_FIXED` is used), since memory mappings are usually
 ///   aligned to a page boundary, and the `.npy` format has padding such that
 ///   the header size is a multiple of 64 bytes.
 ///
@@ -737,12 +737,12 @@ pub trait ViewNpyExt<'a>: Sized {
 /// Notes:
 ///
 /// - For types for which not all bit patterns are valid, such as `bool`, the
-///   implementation iterates over all of the elements when creating the view
-///   to ensure they have a valid bit pattern.
+///   implementation iterates over all of the elements when creating the view to
+///   ensure they have a valid bit pattern.
 ///
 /// - The data in the buffer must be properly aligned for the element type.
-///   Typically, this should not be a concern for memory-mapped files (unless
-///   an option like `MAP_FIXED` is used), since memory mappings are usually
+///   Typically, this should not be a concern for memory-mapped files (unless an
+///   option like `MAP_FIXED` is used), since memory mappings are usually
 ///   aligned to a page boundary, and the `.npy` format has padding such that
 ///   the header size is a multiple of 64 bytes.
 ///

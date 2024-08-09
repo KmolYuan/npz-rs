@@ -3,10 +3,7 @@ use num_traits::ToPrimitive;
 use py_literal::{
     FormatError as PyValueFormatError, ParseError as PyValueParseError, Value as PyValue,
 };
-use std::convert::TryFrom;
-use std::error::Error;
-use std::fmt;
-use std::io;
+use std::{convert::TryFrom, error::Error, fmt, io};
 
 /// Magic string to indicate npy format.
 const MAGIC_STRING: &[u8] = b"\x93NUMPY";
@@ -193,7 +190,8 @@ impl Version {
 
     /// Format header length as bytes for writing to file.
     ///
-    /// Returns `None` if the value of `header_len` is too large for this .npy version.
+    /// Returns `None` if the value of `header_len` is too large for this .npy
+    /// version.
     fn format_header_len(self, header_len: usize) -> Option<Vec<u8>> {
         match self {
             Version::V1_0 => {
@@ -232,10 +230,7 @@ impl Version {
         let total_len: usize = unpadded_total_len.checked_add(padding_len)?;
         let header_len: usize = total_len - prefix_len;
         let formatted_header_len = self.format_header_len(header_len)?;
-        Some(HeaderLengthInfo {
-            total_len,
-            formatted_header_len,
-        })
+        Some(HeaderLengthInfo { total_len, formatted_header_len })
     }
 }
 
@@ -371,11 +366,9 @@ impl Header {
                 }
             }
             match (type_descriptor, fortran_order, shape) {
-                (Some(type_descriptor), Some(fortran_order), Some(shape)) => Ok(Header {
-                    type_descriptor,
-                    fortran_order,
-                    shape,
-                }),
+                (Some(type_descriptor), Some(fortran_order), Some(shape)) => {
+                    Ok(Header { type_descriptor, fortran_order, shape })
+                }
                 (None, _, _) => Err(ParseHeaderError::MissingKey("descr".to_owned())),
                 (_, None, _) => Err(ParseHeaderError::MissingKey("fortran_order".to_owned())),
                 (_, _, None) => Err(ParseHeaderError::MissingKey("shaper".to_owned())),

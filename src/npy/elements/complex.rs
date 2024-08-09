@@ -1,11 +1,9 @@
 use super::check_for_extra_bytes;
 use crate::{ReadDataError, ReadableElement};
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
-use num_complex_0_4::Complex;
+use num_complex::Complex;
 use py_literal::Value as PyValue;
-use std::io;
-use std::mem;
-use std::slice;
+use std::{io, mem, slice};
 
 /// Casts the slice of complex numbers to a slice of the inner values.
 ///
@@ -33,15 +31,15 @@ fn complex_slice_as_inner_slice_mut<T>(slice: &mut [Complex<T>]) -> &mut [T] {
 
     // This is sound because:
     //
-    // - Since `slice` is an existing slice, its pointer is non-null, it's
-    //   properly aligned, its length is correct, the elements are initialized,
-    //   and the lifetime is correct.
+    // - Since `slice` is an existing slice, its pointer is non-null, it's properly
+    //   aligned, its length is correct, the elements are initialized, and the
+    //   lifetime is correct.
     //
-    // - We've checked above that `inner_len` will be the correct length and
-    //   the alignment will be the same.
+    // - We've checked above that `inner_len` will be the correct length and the
+    //   alignment will be the same.
     //
-    // - The fields of `Complex` are public, so we aren't violating any
-    //   visibility constraints.
+    // - The fields of `Complex` are public, so we aren't violating any visibility
+    //   constraints.
     unsafe { slice::from_raw_parts_mut(slice.as_mut_ptr().cast(), inner_len) }
 }
 

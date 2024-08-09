@@ -1,8 +1,10 @@
 use memmap2::MmapMut;
 use ndarray::ArrayViewMut3;
 use npz::{write_zeroed_npy, ViewMutNpyExt};
-use std::fs::{File, OpenOptions};
-use std::io;
+use std::{
+    fs::{File, OpenOptions},
+    io,
+};
 
 fn print_file_sizes(file: &File) -> io::Result<()> {
     println!("Size of backing file:");
@@ -34,11 +36,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let file = OpenOptions::new().read(true).write(true).open(path)?;
     print_file_sizes(&file)?;
     let mut mmap = unsafe { MmapMut::map_mut(&file)? };
-    let mut view_mut = ArrayViewMut3::<f64>::view_mut_npy(&mut mmap)?;
+    let mut view_mut = ArrayViewMut3::view_mut_npy(&mut mmap)?;
 
     // Modify an element near the middle of the data.
     println!("Modifying an element near the middle of the data...");
-    view_mut[[500, 1000, 2000]] = 3.14;
+    view_mut[[500, 1000, 2000]] = 888.;
     print_file_sizes(&file)?;
 
     Ok(())
