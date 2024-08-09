@@ -413,7 +413,7 @@ fn zeroed() {
     file.write_all(EXISTING_DATA).unwrap();
 
     // Write `.npy` file with zeroed data.
-    write_zeroed_npy::<i32, _>(&file, SHAPE).unwrap();
+    write_zeroed_npy::<i32>(&file, &SHAPE).unwrap();
 
     // Reset cursor and verify EXISTING_DATA is still there.
     file.seek(SeekFrom::Start(0)).unwrap();

@@ -1,7 +1,4 @@
-use crate::{
-    ReadNpyError, ReadNpyExt, ReadableElement, WritableElement, WriteNpyError, WriteNpyExt,
-};
-use ndarray::{prelude::*, Data, DataOwned};
+use crate::{ReadNpyError, ReadNpyExt, WriteNpyError, WriteNpyExt};
 use std::{
     error::Error,
     fmt,
@@ -95,7 +92,7 @@ impl<W: Write + Seek> NpzWriter<W> {
     /// [`numpy.savez_compressed`].
     ///
     /// [`numpy.savez_compressed`]: https://docs.scipy.org/doc/numpy/reference/generated/numpy.savez_compressed.html
-    #[cfg(feature = "compressed_npz")]
+    #[cfg(feature = "compressed-npz")]
     pub fn new_compressed(writer: W) -> NpzWriter<W> {
         NpzWriter {
             zip: ZipWriter::new(writer),
@@ -107,16 +104,10 @@ impl<W: Write + Seek> NpzWriter<W> {
     ///
     /// To write a scalar value, create a zero-dimensional array using
     /// [`arr0`](ndarray::arr0) or [`aview0`](ndarray::aview0).
-    pub fn add_array<N, S, D>(
-        &mut self,
-        name: N,
-        array: &ArrayBase<S, D>,
-    ) -> Result<(), WriteNpzError>
+    pub fn add_array<N, A>(&mut self, name: N, array: &A) -> Result<(), WriteNpzError>
     where
         N: ToString,
-        S::Elem: WritableElement,
-        S: Data,
-        D: Dimension,
+        A: WriteNpyExt,
     {
         self.zip.start_file(name, self.options)?;
         // Buffering when writing individual arrays is beneficial even when the
@@ -226,22 +217,12 @@ impl<R: Read + Seek> NpzReader<R> {
     }
 
     /// Reads an array by name.
-    pub fn by_name<S, D>(&mut self, name: &str) -> Result<ArrayBase<S, D>, ReadNpzError>
-    where
-        S::Elem: ReadableElement,
-        S: DataOwned,
-        D: Dimension,
-    {
-        Ok(ArrayBase::<S, D>::read_npy(self.zip.by_name(name)?)?)
+    pub fn by_name<A: ReadNpyExt>(&mut self, name: &str) -> Result<A, ReadNpzError> {
+        Ok(A::read_npy(self.zip.by_name(name)?)?)
     }
 
     /// Reads an array by index in the `.npz` file.
-    pub fn by_index<S, D>(&mut self, index: usize) -> Result<ArrayBase<S, D>, ReadNpzError>
-    where
-        S::Elem: ReadableElement,
-        S: DataOwned,
-        D: Dimension,
-    {
-        Ok(ArrayBase::<S, D>::read_npy(self.zip.by_index(index)?)?)
+    pub fn by_index<A: ReadNpyExt>(&mut self, index: usize) -> Result<A, ReadNpzError> {
+        Ok(A::read_npy(self.zip.by_index(index)?)?)
     }
 }

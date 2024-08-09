@@ -4,10 +4,8 @@ pub mod header;
 use self::header::{
     FormatHeaderError, Header, ParseHeaderError, ReadHeaderError, WriteHeaderError,
 };
-use ndarray::{prelude::*, Data, DataOwned, IntoDimension};
 use py_literal::Value as PyValue;
 use std::{
-    convert::TryInto,
     error::Error,
     fmt,
     fs::File,
@@ -144,26 +142,24 @@ where
 ///
 /// // Create a (sparse if supported) file containing 64 GiB of zeroed data.
 /// let file = File::create(path)?;
-/// write_zeroed_npy::<f64, _>(&file, (1024, 2048, 4096))?;
+/// write_zeroed_npy::<f64>(&file, &[1024, 2048, 4096])?;
 ///
 /// // Memory-map the file and create the mutable view.
 /// let file = OpenOptions::new().read(true).write(true).open(path)?;
 /// let mut mmap = unsafe { MmapMut::map_mut(&file)? };
-/// let mut view_mut = ArrayViewMut3::<f64>::view_mut_npy(&mut mmap)?;
+/// let mut view_mut = ArrayViewMut3::view_mut_npy(&mut mmap)?;
 ///
 /// // Modify an element in the view.
 /// view_mut[[500, 1000, 2000]] = 3.14;
 /// #
 /// # Ok::<_, Box<dyn std::error::Error>>(())
 /// ```
-pub fn write_zeroed_npy<A, D>(mut file: &File, shape: D) -> Result<(), WriteNpyError>
+pub fn write_zeroed_npy<A>(mut file: &File, shape: &[usize]) -> Result<(), WriteNpyError>
 where
     A: WritableElement,
-    D: IntoDimension,
 {
-    let dim = shape.into_dimension();
-    let data_bytes_len: u64 = dim
-        .size_checked()
+    let shape = shape.to_vec();
+    let data_bytes_len = (shape.iter().try_fold(1, |s, a| a.checked_mul(s)))
         .expect("overflow computing number of elements")
         .checked_mul(mem::size_of::<A>())
         .expect("overflow computing length of data")
@@ -172,7 +168,7 @@ where
     Header {
         type_descriptor: A::type_descriptor(),
         fortran_order: false,
-        shape: dim.as_array_view().to_vec(),
+        shape,
     }
     .write(file)?;
     let current_offset = file.stream_position()?;
@@ -185,6 +181,48 @@ where
             .expect("overflow computing file length"),
     )?;
     Ok(())
+}
+
+/// An array element type that can be written to an `.npy` or `.npz` file.
+pub trait WritableElement: Sized {
+    /// Returns a descriptor of the type that can be used in the header.
+    fn type_descriptor() -> PyValue;
+
+    /// Writes a single instance of `Self` to the writer.
+    fn write<W: io::Write>(&self, writer: W) -> Result<(), WriteDataError>;
+
+    /// Writes a slice of `Self` to the writer.
+    fn write_slice<W: io::Write>(slice: &[Self], writer: W) -> Result<(), WriteDataError>;
+}
+
+/// Extension trait for writing an array to `.npy` files.
+///
+/// If writes are expensive (e.g. for a file or network socket) and the layout
+/// of the array is not known to be in standard or Fortran layout, it is
+/// strongly recommended to wrap the writer in a [`BufWriter`]. For the sake of
+/// convenience, this method calls [`.flush()`](io::Write::flush) on the writer
+/// before returning.
+///
+/// # Example
+///
+/// ```no_run
+/// use ndarray::{array, Array2};
+/// use npz::WriteNpyExt;
+/// use std::{fs::File, io::BufWriter};
+/// # use npz::WriteNpyError;
+///
+/// let arr: Array2<i32> = array![[1, 2, 3], [4, 5, 6]];
+/// let writer = BufWriter::new(File::create("array.npy")?);
+/// arr.write_npy(writer)?;
+/// # Ok::<_, WriteNpyError>(())
+/// ```
+pub trait WriteNpyExt {
+    /// Writes the array to `writer` in [`.npy`
+    /// format](https://docs.scipy.org/doc/numpy/reference/generated/numpy.lib.format.html).
+    ///
+    /// This function is the Rust equivalent of
+    /// [`numpy.save`](https://docs.scipy.org/doc/numpy/reference/generated/numpy.save.html).
+    fn write_npy<W: io::Write>(&self, writer: W) -> Result<(), WriteNpyError>;
 }
 
 /// An error writing array data.
@@ -218,18 +256,6 @@ impl From<io::Error> for WriteDataError {
     fn from(err: io::Error) -> WriteDataError {
         WriteDataError::Io(err)
     }
-}
-
-/// An array element type that can be written to an `.npy` or `.npz` file.
-pub trait WritableElement: Sized {
-    /// Returns a descriptor of the type that can be used in the header.
-    fn type_descriptor() -> PyValue;
-
-    /// Writes a single instance of `Self` to the writer.
-    fn write<W: io::Write>(&self, writer: W) -> Result<(), WriteDataError>;
-
-    /// Writes a slice of `Self` to the writer.
-    fn write_slice<W: io::Write>(slice: &[Self], writer: W) -> Result<(), WriteDataError>;
 }
 
 /// An error writing a `.npy` file.
@@ -293,72 +319,45 @@ impl From<WriteDataError> for WriteNpyError {
     }
 }
 
-/// Extension trait for writing [`ArrayBase`] to `.npy` files.
-///
-/// If writes are expensive (e.g. for a file or network socket) and the layout
-/// of the array is not known to be in standard or Fortran layout, it is
-/// strongly recommended to wrap the writer in a [`BufWriter`]. For the sake of
-/// convenience, this method calls [`.flush()`](io::Write::flush) on the writer
-/// before returning.
+/// An array element type that can be read from an `.npy` or `.npz` file.
+pub trait ReadableElement: Sized {
+    /// Reads to the end of the `reader`, creating a `Vec` of length `len`.
+    ///
+    /// This method should return `Err(_)` in at least the following cases:
+    ///
+    /// * if the `type_desc` does not match `Self`
+    /// * if the `reader` has fewer elements than `len`
+    /// * if the `reader` has extra bytes after reading `len` elements
+    fn read_to_end_exact_vec<R: io::Read>(
+        reader: R,
+        type_desc: &PyValue,
+        len: usize,
+    ) -> Result<Vec<Self>, ReadDataError>;
+}
+
+/// Extension trait for reading `Array` from `.npy` files.
 ///
 /// # Example
 ///
-/// ```no_run
-/// use ndarray::{array, Array2};
-/// use npz::WriteNpyExt;
-/// use std::{fs::File, io::BufWriter};
-/// # use npz::WriteNpyError;
-///
-/// let arr: Array2<i32> = array![[1, 2, 3], [4, 5, 6]];
-/// let writer = BufWriter::new(File::create("array.npy")?);
-/// arr.write_npy(writer)?;
-/// # Ok::<_, WriteNpyError>(())
 /// ```
-pub trait WriteNpyExt {
-    /// Writes the array to `writer` in [`.npy`
+/// use ndarray::Array2;
+/// use npz::ReadNpyExt;
+/// use std::fs::File;
+/// # use npz::ReadNpyError;
+///
+/// let reader = File::open("resources/array.npy")?;
+/// let arr = Array2::<i32>::read_npy(reader)?;
+/// # println!("arr = {}", arr);
+/// # Ok::<_, ReadNpyError>(())
+/// ```
+pub trait ReadNpyExt: Sized {
+    /// Reads the array from `reader` in [`.npy`
     /// format](https://docs.scipy.org/doc/numpy/reference/generated/numpy.lib.format.html).
     ///
     /// This function is the Rust equivalent of
-    /// [`numpy.save`](https://docs.scipy.org/doc/numpy/reference/generated/numpy.save.html).
-    fn write_npy<W: io::Write>(&self, writer: W) -> Result<(), WriteNpyError>;
-}
-
-impl<A, S, D> WriteNpyExt for ArrayBase<S, D>
-where
-    A: WritableElement,
-    S: Data<Elem = A>,
-    D: Dimension,
-{
-    fn write_npy<W: io::Write>(&self, mut writer: W) -> Result<(), WriteNpyError> {
-        let write_contiguous = |mut writer: W, fortran_order: bool| {
-            Header {
-                type_descriptor: A::type_descriptor(),
-                fortran_order,
-                shape: self.shape().to_owned(),
-            }
-            .write(&mut writer)?;
-            A::write_slice(self.as_slice_memory_order().unwrap(), &mut writer)?;
-            writer.flush()?;
-            Ok(())
-        };
-        if self.is_standard_layout() {
-            write_contiguous(writer, false)
-        } else if self.view().reversed_axes().is_standard_layout() {
-            write_contiguous(writer, true)
-        } else {
-            Header {
-                type_descriptor: A::type_descriptor(),
-                fortran_order: false,
-                shape: self.shape().to_owned(),
-            }
-            .write(&mut writer)?;
-            for elem in self.iter() {
-                elem.write(&mut writer)?;
-            }
-            writer.flush()?;
-            Ok(())
-        }
-    }
+    /// [`numpy.load`](https://docs.scipy.org/doc/numpy/reference/generated/numpy.load.html)
+    /// for `.npy` files.
+    fn read_npy<R: io::Read>(reader: R) -> Result<Self, ReadNpyError>;
 }
 
 /// An error reading array data.
@@ -417,22 +416,6 @@ impl From<io::Error> for ReadDataError {
             ReadDataError::Io(err)
         }
     }
-}
-
-/// An array element type that can be read from an `.npy` or `.npz` file.
-pub trait ReadableElement: Sized {
-    /// Reads to the end of the `reader`, creating a `Vec` of length `len`.
-    ///
-    /// This method should return `Err(_)` in at least the following cases:
-    ///
-    /// * if the `type_desc` does not match `Self`
-    /// * if the `reader` has fewer elements than `len`
-    /// * if the `reader` has extra bytes after reading `len` elements
-    fn read_to_end_exact_vec<R: io::Read>(
-        reader: R,
-        type_desc: &PyValue,
-        len: usize,
-    ) -> Result<Vec<Self>, ReadDataError>;
 }
 
 /// An error reading a `.npy` file.
@@ -529,47 +512,199 @@ impl From<ReadDataError> for ReadNpyError {
     }
 }
 
-/// Extension trait for reading `Array` from `.npy` files.
+/// An array element type that can be viewed (without copying) in an `.npy`
+/// file.
+pub trait ViewElement: Sized {
+    /// Casts `bytes` into a slice of elements of length `len`.
+    ///
+    /// Returns `Err(_)` in at least the following cases:
+    ///
+    ///   * if the `type_desc` does not match `Self` with native endianness
+    ///   * if the `bytes` slice is misaligned for elements of type `Self`
+    ///   * if the `bytes` slice is too short for `len` elements
+    ///   * if the `bytes` slice has extra bytes after `len` elements
+    ///
+    /// May panic if `len * size_of::<Self>()` overflows.
+    fn bytes_as_slice<'a>(
+        bytes: &'a [u8],
+        type_desc: &PyValue,
+        len: usize,
+    ) -> Result<&'a [Self], ViewDataError>;
+}
+
+/// An array element type that can be mutably viewed (without copying) in an
+/// `.npy` file.
+pub trait ViewMutElement: Sized {
+    /// Casts `bytes` into a mutable slice of elements of length `len`.
+    ///
+    /// Returns `Err(_)` in at least the following cases:
+    ///
+    ///   * if the `type_desc` does not match `Self` with native endianness
+    ///   * if the `bytes` slice is misaligned for elements of type `Self`
+    ///   * if the `bytes` slice is too short for `len` elements
+    ///   * if the `bytes` slice has extra bytes after `len` elements
+    ///
+    /// May panic if `len * size_of::<Self>()` overflows.
+    fn bytes_as_mut_slice<'a>(
+        bytes: &'a mut [u8],
+        type_desc: &PyValue,
+        len: usize,
+    ) -> Result<&'a mut [Self], ViewDataError>;
+}
+
+/// Extension trait for creating a view from a buffer containing an `.npy` file.
+///
+/// The primary use-case for this is viewing a memory-mapped `.npy` file.
+///
+/// # Notes
+///
+/// - For types for which not all bit patterns are valid, such as `bool`, the
+///   implementation iterates over all of the elements when creating the view to
+///   ensure they have a valid bit pattern.
+///
+/// - The data in the buffer must be properly aligned for the element type.
+///   Typically, this should not be a concern for memory-mapped files (unless an
+///   option like `MAP_FIXED` is used), since memory mappings are usually
+///   aligned to a page boundary, and the `.npy` format has padding such that
+///   the header size is a multiple of 64 bytes.
 ///
 /// # Example
 ///
-/// ```
-/// use ndarray::Array2;
-/// use npz::ReadNpyExt;
-/// use std::fs::File;
-/// # use npz::ReadNpyError;
+/// This is an example of opening a readonly memory-mapped file as an
+/// `ArrayView`.
 ///
-/// let reader = File::open("resources/array.npy")?;
-/// let arr = Array2::<i32>::read_npy(reader)?;
-/// # println!("arr = {}", arr);
-/// # Ok::<_, ReadNpyError>(())
+/// This example uses the [`memmap2`](https://crates.io/crates/memmap2) crate
+/// because that appears to be the best-maintained memory-mapping crate at the
+/// moment, but `view_npy` takes a `&[u8]` instead of a file so that you can
+/// use the memory-mapping crate you're most comfortable with.
+///
 /// ```
-pub trait ReadNpyExt: Sized {
-    /// Reads the array from `reader` in [`.npy`
-    /// format](https://docs.scipy.org/doc/numpy/reference/generated/numpy.lib.format.html).
-    ///
-    /// This function is the Rust equivalent of
-    /// [`numpy.load`](https://docs.scipy.org/doc/numpy/reference/generated/numpy.load.html)
-    /// for `.npy` files.
-    fn read_npy<R: io::Read>(reader: R) -> Result<Self, ReadNpyError>;
+/// # if !cfg!(miri) { // Miri doesn't support mmap.
+/// use memmap2::Mmap;
+/// use ndarray::ArrayView2;
+/// use npz::ViewNpyExt;
+/// use std::fs::File;
+///
+/// let file = File::open("resources/array.npy")?;
+/// let mmap = unsafe { Mmap::map(&file)? };
+/// let view = ArrayView2::<i32>::view_npy(&mmap)?;
+/// # println!("view = {}", view);
+/// # }
+/// # Ok::<_, Box<dyn std::error::Error>>(())
+/// ```
+pub trait ViewNpyExt<'a>: Sized {
+    /// Creates an `ArrayView` from a buffer containing an `.npy` file.
+    fn view_npy(buf: &'a [u8]) -> Result<Self, ViewNpyError>;
 }
 
-impl<A, S, D> ReadNpyExt for ArrayBase<S, D>
-where
-    A: ReadableElement,
-    S: DataOwned<Elem = A>,
-    D: Dimension,
-{
-    fn read_npy<R: io::Read>(mut reader: R) -> Result<Self, ReadNpyError> {
-        let header = Header::from_reader(&mut reader)?;
-        let shape = header.shape.into_dimension();
-        let ndim = shape.ndim();
-        let len = shape_length_checked::<A>(&shape).ok_or(ReadNpyError::LengthOverflow)?;
-        let data = A::read_to_end_exact_vec(&mut reader, &header.type_descriptor, len)?;
-        ArrayBase::from_shape_vec(shape.set_f(header.fortran_order), data)
-            .unwrap()
-            .into_dimensionality()
-            .map_err(|_| ReadNpyError::WrongNdim(D::NDIM, ndim))
+/// Extension trait for creating a mutable view from a mutable buffer
+/// containing an `.npy` file.
+///
+/// The primary use-case for this is modifying a memory-mapped `.npy` file.
+/// Modifying the elements in the view will modify the file. Modifying the
+/// shape/strides of the view will *not* modify the shape/strides of the array
+/// in the file.
+///
+/// Notes:
+///
+/// - For types for which not all bit patterns are valid, such as `bool`, the
+///   implementation iterates over all of the elements when creating the view to
+///   ensure they have a valid bit pattern.
+///
+/// - The data in the buffer must be properly aligned for the element type.
+///   Typically, this should not be a concern for memory-mapped files (unless an
+///   option like `MAP_FIXED` is used), since memory mappings are usually
+///   aligned to a page boundary, and the `.npy` format has padding such that
+///   the header size is a multiple of 64 bytes.
+///
+/// # Example
+///
+/// This is an example of opening a writable memory-mapped file as a mutable
+/// view. Changes to the data in the view will modify the underlying file.
+///
+/// This example uses the [`memmap2`](https://crates.io/crates/memmap2) crate
+/// because that appears to be the best-maintained memory-mapping crate at the
+/// moment, but `view_mut_npy` takes a `&mut [u8]` instead of a file so that
+/// you can use the memory-mapping crate you're most comfortable with.
+///
+/// ```
+/// # if !cfg!(miri) { // Miri doesn't support mmap.
+/// use memmap2::MmapMut;
+/// use ndarray::ArrayViewMut2;
+/// use npz::ViewMutNpyExt;
+/// use std::fs;
+///
+/// let file = fs::OpenOptions::new()
+///     .read(true)
+///     .write(true)
+///     .open("resources/array.npy")?;
+/// let mut mmap = unsafe { MmapMut::map_mut(&file)? };
+/// let view_mut = ArrayViewMut2::<i32>::view_mut_npy(&mut mmap)?;
+/// # println!("view_mut = {}", view_mut);
+/// # }
+/// # Ok::<_, Box<dyn std::error::Error>>(())
+/// ```
+pub trait ViewMutNpyExt<'a>: Sized {
+    /// Creates an `ArrayViewMut` from a mutable buffer containing an `.npy`
+    /// file.
+    fn view_mut_npy(buf: &'a mut [u8]) -> Result<Self, ViewNpyError>;
+}
+
+/// An error viewing array data.
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum ViewDataError {
+    /// The type descriptor does not match the element type.
+    WrongDescriptor(PyValue),
+    /// The type descriptor does not match the native endianness.
+    NonNativeEndian,
+    /// The start of the data is not properly aligned for the element type.
+    Misaligned,
+    /// The file does not contain all the data described in the header.
+    MissingBytes(usize),
+    /// Extra bytes are present between the end of the data and the end of the
+    /// file.
+    ExtraBytes(usize),
+    /// Some of the data is invalid for the element type.
+    InvalidData(Box<dyn Error + Send + Sync + 'static>),
+}
+
+impl Error for ViewDataError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            ViewDataError::WrongDescriptor(_) => None,
+            ViewDataError::NonNativeEndian => None,
+            ViewDataError::Misaligned => None,
+            ViewDataError::MissingBytes(_) => None,
+            ViewDataError::ExtraBytes(_) => None,
+            ViewDataError::InvalidData(err) => Some(&**err),
+        }
+    }
+}
+
+impl fmt::Display for ViewDataError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ViewDataError::WrongDescriptor(desc) => {
+                write!(f, "incorrect descriptor ({}) for this type", desc)
+            }
+            ViewDataError::NonNativeEndian => {
+                write!(f, "descriptor does not match native endianness")
+            }
+            ViewDataError::Misaligned => write!(
+                f,
+                "start of data is not properly aligned for the element type"
+            ),
+            ViewDataError::MissingBytes(num_missing_bytes) => write!(
+                f,
+                "missing {} bytes of data specified in header",
+                num_missing_bytes
+            ),
+            ViewDataError::ExtraBytes(num_extra_bytes) => {
+                write!(f, "file had {} extra bytes before EOF", num_extra_bytes)
+            }
+            ViewDataError::InvalidData(err) => write!(f, "invalid data for element type: {}", err),
+        }
     }
 }
 
@@ -678,258 +813,4 @@ impl From<ViewDataError> for ViewNpyError {
             ViewDataError::InvalidData(err) => ViewNpyError::InvalidData(err),
         }
     }
-}
-
-/// Extension trait for creating an [`ArrayView`] from a buffer containing an
-/// `.npy` file.
-///
-/// The primary use-case for this is viewing a memory-mapped `.npy` file.
-///
-/// # Notes
-///
-/// - For types for which not all bit patterns are valid, such as `bool`, the
-///   implementation iterates over all of the elements when creating the view to
-///   ensure they have a valid bit pattern.
-///
-/// - The data in the buffer must be properly aligned for the element type.
-///   Typically, this should not be a concern for memory-mapped files (unless an
-///   option like `MAP_FIXED` is used), since memory mappings are usually
-///   aligned to a page boundary, and the `.npy` format has padding such that
-///   the header size is a multiple of 64 bytes.
-///
-/// # Example
-///
-/// This is an example of opening a readonly memory-mapped file as an
-/// [`ArrayView`].
-///
-/// This example uses the [`memmap2`](https://crates.io/crates/memmap2) crate
-/// because that appears to be the best-maintained memory-mapping crate at the
-/// moment, but `view_npy` takes a `&[u8]` instead of a file so that you can
-/// use the memory-mapping crate you're most comfortable with.
-///
-/// ```
-/// # if !cfg!(miri) { // Miri doesn't support mmap.
-/// use memmap2::Mmap;
-/// use ndarray::ArrayView2;
-/// use npz::ViewNpyExt;
-/// use std::fs::File;
-///
-/// let file = File::open("resources/array.npy")?;
-/// let mmap = unsafe { Mmap::map(&file)? };
-/// let view = ArrayView2::<i32>::view_npy(&mmap)?;
-/// # println!("view = {}", view);
-/// # }
-/// # Ok::<_, Box<dyn std::error::Error>>(())
-/// ```
-pub trait ViewNpyExt<'a>: Sized {
-    /// Creates an `ArrayView` from a buffer containing an `.npy` file.
-    fn view_npy(buf: &'a [u8]) -> Result<Self, ViewNpyError>;
-}
-
-/// Extension trait for creating an [`ArrayViewMut`] from a mutable buffer
-/// containing an `.npy` file.
-///
-/// The primary use-case for this is modifying a memory-mapped `.npy` file.
-/// Modifying the elements in the view will modify the file. Modifying the
-/// shape/strides of the view will *not* modify the shape/strides of the array
-/// in the file.
-///
-/// Notes:
-///
-/// - For types for which not all bit patterns are valid, such as `bool`, the
-///   implementation iterates over all of the elements when creating the view to
-///   ensure they have a valid bit pattern.
-///
-/// - The data in the buffer must be properly aligned for the element type.
-///   Typically, this should not be a concern for memory-mapped files (unless an
-///   option like `MAP_FIXED` is used), since memory mappings are usually
-///   aligned to a page boundary, and the `.npy` format has padding such that
-///   the header size is a multiple of 64 bytes.
-///
-/// # Example
-///
-/// This is an example of opening a writable memory-mapped file as an
-/// [`ArrayViewMut`]. Changes to the data in the view will modify the
-/// underlying file.
-///
-/// This example uses the [`memmap2`](https://crates.io/crates/memmap2) crate
-/// because that appears to be the best-maintained memory-mapping crate at the
-/// moment, but `view_mut_npy` takes a `&mut [u8]` instead of a file so that
-/// you can use the memory-mapping crate you're most comfortable with.
-///
-/// ```
-/// # if !cfg!(miri) { // Miri doesn't support mmap.
-/// use memmap2::MmapMut;
-/// use ndarray::ArrayViewMut2;
-/// use npz::ViewMutNpyExt;
-/// use std::fs;
-///
-/// let file = fs::OpenOptions::new()
-///     .read(true)
-///     .write(true)
-///     .open("resources/array.npy")?;
-/// let mut mmap = unsafe { MmapMut::map_mut(&file)? };
-/// let view_mut = ArrayViewMut2::<i32>::view_mut_npy(&mut mmap)?;
-/// # println!("view_mut = {}", view_mut);
-/// # }
-/// # Ok::<_, Box<dyn std::error::Error>>(())
-/// ```
-pub trait ViewMutNpyExt<'a>: Sized {
-    /// Creates an `ArrayViewMut` from a mutable buffer containing an `.npy`
-    /// file.
-    fn view_mut_npy(buf: &'a mut [u8]) -> Result<Self, ViewNpyError>;
-}
-
-impl<'a, A, D> ViewNpyExt<'a> for ArrayView<'a, A, D>
-where
-    A: ViewElement,
-    D: Dimension,
-{
-    fn view_npy(buf: &'a [u8]) -> Result<Self, ViewNpyError> {
-        let mut reader = buf;
-        let header = Header::from_reader(&mut reader)?;
-        let shape = header.shape.into_dimension();
-        let ndim = shape.ndim();
-        let len = shape_length_checked::<A>(&shape).ok_or(ViewNpyError::LengthOverflow)?;
-        let data = A::bytes_as_slice(reader, &header.type_descriptor, len)?;
-        ArrayView::from_shape(shape.set_f(header.fortran_order), data)
-            .unwrap()
-            .into_dimensionality()
-            .map_err(|_| ViewNpyError::WrongNdim(D::NDIM, ndim))
-    }
-}
-
-impl<'a, A, D> ViewMutNpyExt<'a> for ArrayViewMut<'a, A, D>
-where
-    A: ViewMutElement,
-    D: Dimension,
-{
-    fn view_mut_npy(buf: &'a mut [u8]) -> Result<Self, ViewNpyError> {
-        let mut reader = &*buf;
-        let header = Header::from_reader(&mut reader)?;
-        let shape = header.shape.into_dimension();
-        let ndim = shape.ndim();
-        let len = shape_length_checked::<A>(&shape).ok_or(ViewNpyError::LengthOverflow)?;
-        let mid = buf.len() - reader.len();
-        let data = A::bytes_as_mut_slice(&mut buf[mid..], &header.type_descriptor, len)?;
-        ArrayViewMut::from_shape(shape.set_f(header.fortran_order), data)
-            .unwrap()
-            .into_dimensionality()
-            .map_err(|_| ViewNpyError::WrongNdim(D::NDIM, ndim))
-    }
-}
-
-/// An error viewing array data.
-#[derive(Debug)]
-#[non_exhaustive]
-pub enum ViewDataError {
-    /// The type descriptor does not match the element type.
-    WrongDescriptor(PyValue),
-    /// The type descriptor does not match the native endianness.
-    NonNativeEndian,
-    /// The start of the data is not properly aligned for the element type.
-    Misaligned,
-    /// The file does not contain all the data described in the header.
-    MissingBytes(usize),
-    /// Extra bytes are present between the end of the data and the end of the
-    /// file.
-    ExtraBytes(usize),
-    /// Some of the data is invalid for the element type.
-    InvalidData(Box<dyn Error + Send + Sync + 'static>),
-}
-
-impl Error for ViewDataError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            ViewDataError::WrongDescriptor(_) => None,
-            ViewDataError::NonNativeEndian => None,
-            ViewDataError::Misaligned => None,
-            ViewDataError::MissingBytes(_) => None,
-            ViewDataError::ExtraBytes(_) => None,
-            ViewDataError::InvalidData(err) => Some(&**err),
-        }
-    }
-}
-
-impl fmt::Display for ViewDataError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            ViewDataError::WrongDescriptor(desc) => {
-                write!(f, "incorrect descriptor ({}) for this type", desc)
-            }
-            ViewDataError::NonNativeEndian => {
-                write!(f, "descriptor does not match native endianness")
-            }
-            ViewDataError::Misaligned => write!(
-                f,
-                "start of data is not properly aligned for the element type"
-            ),
-            ViewDataError::MissingBytes(num_missing_bytes) => write!(
-                f,
-                "missing {} bytes of data specified in header",
-                num_missing_bytes
-            ),
-            ViewDataError::ExtraBytes(num_extra_bytes) => {
-                write!(f, "file had {} extra bytes before EOF", num_extra_bytes)
-            }
-            ViewDataError::InvalidData(err) => write!(f, "invalid data for element type: {}", err),
-        }
-    }
-}
-
-/// An array element type that can be viewed (without copying) in an `.npy`
-/// file.
-pub trait ViewElement: Sized {
-    /// Casts `bytes` into a slice of elements of length `len`.
-    ///
-    /// Returns `Err(_)` in at least the following cases:
-    ///
-    ///   * if the `type_desc` does not match `Self` with native endianness
-    ///   * if the `bytes` slice is misaligned for elements of type `Self`
-    ///   * if the `bytes` slice is too short for `len` elements
-    ///   * if the `bytes` slice has extra bytes after `len` elements
-    ///
-    /// May panic if `len * size_of::<Self>()` overflows.
-    fn bytes_as_slice<'a>(
-        bytes: &'a [u8],
-        type_desc: &PyValue,
-        len: usize,
-    ) -> Result<&'a [Self], ViewDataError>;
-}
-
-/// An array element type that can be mutably viewed (without copying) in an
-/// `.npy` file.
-pub trait ViewMutElement: Sized {
-    /// Casts `bytes` into a mutable slice of elements of length `len`.
-    ///
-    /// Returns `Err(_)` in at least the following cases:
-    ///
-    ///   * if the `type_desc` does not match `Self` with native endianness
-    ///   * if the `bytes` slice is misaligned for elements of type `Self`
-    ///   * if the `bytes` slice is too short for `len` elements
-    ///   * if the `bytes` slice has extra bytes after `len` elements
-    ///
-    /// May panic if `len * size_of::<Self>()` overflows.
-    fn bytes_as_mut_slice<'a>(
-        bytes: &'a mut [u8],
-        type_desc: &PyValue,
-        len: usize,
-    ) -> Result<&'a mut [Self], ViewDataError>;
-}
-
-/// Computes the length associated with the shape (i.e. the product of the axis
-/// lengths), where the element type is `T`.
-///
-/// Returns `None` if the number of elements or the length in bytes would
-/// overflow `isize`.
-fn shape_length_checked<T>(shape: &IxDyn) -> Option<usize> {
-    let len = shape.size_checked()?;
-    if len > isize::MAX as usize {
-        return None;
-    }
-    let bytes = len.checked_mul(mem::size_of::<T>())?;
-    if bytes > isize::MAX as usize {
-        return None;
-    }
-    Some(len)
 }

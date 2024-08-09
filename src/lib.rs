@@ -48,15 +48,22 @@
 //! user-defined structs) in the future.
 //!
 //! [header dictionary]: https://docs.scipy.org/doc/numpy/reference/generated/numpy.lib.format.html#format-version-1-0
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![warn(missing_docs)]
 
 mod npy;
-#[cfg(feature = "npz")]
 mod npz;
 
-pub use crate::npy::{
-    read_npy, write_npy, write_zeroed_npy, ReadDataError, ReadNpyError, ReadNpyExt,
-    ReadableElement, ViewDataError, ViewElement, ViewMutElement, ViewMutNpyExt, ViewNpyError,
-    ViewNpyExt, WritableElement, WriteDataError, WriteNpyError, WriteNpyExt,
+#[cfg(feature = "nalgebra")]
+mod impl_nalgebra;
+#[cfg(feature = "ndarray")]
+mod impl_ndarray;
+
+pub use crate::{
+    npy::{
+        read_npy, write_npy, write_zeroed_npy, ReadDataError, ReadNpyError, ReadNpyExt,
+        ReadableElement, ViewDataError, ViewElement, ViewMutElement, ViewMutNpyExt, ViewNpyError,
+        ViewNpyExt, WritableElement, WriteDataError, WriteNpyError, WriteNpyExt,
+    },
+    npz::{NpzReader, NpzWriter, ReadNpzError, WriteNpzError},
 };
-#[cfg(feature = "npz")]
-pub use crate::npz::{NpzReader, NpzWriter, ReadNpzError, WriteNpzError};

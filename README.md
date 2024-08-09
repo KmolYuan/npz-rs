@@ -41,11 +41,11 @@ To use with the default features:
 ndarray-npy = "0.8.1"
 ```
 
-The `default` feature set includes the `compressed_npz` feature, which enables
+The `default` feature set includes the `compressed-npz` feature, which enables
 support for uncompresssed and compressed `.npz` files, and the
 `num-complex-0_4` feature, which enables support for complex floating point
 element types provided by version 0.4 of the [`num-complex` crate]. The
-`compressed_npz` feature requires a dependency on the [`zip` crate] and a
+`compressed-npz` feature requires a dependency on the [`zip` crate] and a
 compression backend crate.
 
 [`num-complex` crate]: https://crates.io/crates/num-complex
@@ -64,7 +64,7 @@ can select additional features:
 
 * `npz` enables support for uncompressed `.npz` files. This requires a
   dependency on the [`zip` crate].
-* `compressed_npz` enables support for uncompressed and compressed `.npz`
+* `compressed-npz` enables support for uncompressed and compressed `.npz`
   files. This requires a dependency on the [`zip` crate] and a compression
   backend crate.
 * `num-complex-0_4` enables support for complex floating point element types
@@ -96,12 +96,12 @@ where the `features` list is one of the following:
 
 * `[]` if your crate does not depend on `.npz` file support
 * `["npz"]` if your crate depends on `.npz` file support but not compression
-* `["compressed_npz"]` if your crate depends on `.npz` file support with compression
+* `["compressed-npz"]` if your crate depends on `.npz` file support with compression
 * `["num-complex-0_4"]` if your crate depends on support for complex element
   types but not `.npz` files
 * `["num-complex-0_4", "npz"]` if your crate depends on support for complex
   element types and `.npz` files but not compression
-* `["num-complex-0_4", "compressed_npz"]` if your crate depends on support for
+* `["num-complex-0_4", "compressed-npz"]` if your crate depends on support for
   complex element types and `.npz` files with compression
 
 ## Releases

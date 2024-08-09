@@ -312,7 +312,7 @@ impl From<FormatHeaderError> for WriteHeaderError {
 }
 
 #[derive(Clone, Debug)]
-pub struct Header {
+pub(crate) struct Header {
     pub type_descriptor: PyValue,
     pub fortran_order: bool,
     pub shape: Vec<usize>,
