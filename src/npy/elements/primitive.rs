@@ -1,10 +1,14 @@
 //! Trait implementations for primitive element types.
 
-use super::{bytes_as_mut_slice, bytes_as_slice, check_for_extra_bytes};
+use super::{
+    bytes_as_mut_slice, bytes_as_slice, check_for_extra_bytes,
+    impl_view_and_view_mut_always_valid_cast_multi_byte, impl_writable_element_always_valid_cast,
+};
 use crate::{ReadDataError, ReadableElement, ViewDataError, ViewElement, ViewMutElement};
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use py_literal::Value as PyValue;
-use std::{error::Error, fmt, io, mem};
+use std::{io, mem};
+use thiserror::Error;
 
 macro_rules! impl_readable_primitive_one_byte {
     ($elem:ty, [$($desc:expr),*], $zero:expr, $read_into:ident) => {
@@ -122,36 +126,6 @@ impl_primitive_multi_byte!(u64, "<u8", ">u8", 0, read_u64_into);
 impl_primitive_multi_byte!(f32, "<f4", ">f4", 0., read_f32_into);
 impl_primitive_multi_byte!(f64, "<f8", ">f8", 0., read_f64_into);
 
-/// An error parsing a `bool` from a byte.
-#[derive(Debug)]
-struct ParseBoolError {
-    bad_value: u8,
-}
-
-impl Error for ParseBoolError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        None
-    }
-}
-
-impl fmt::Display for ParseBoolError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "error parsing value {:#04x} as a bool", self.bad_value)
-    }
-}
-
-impl From<ParseBoolError> for ReadDataError {
-    fn from(err: ParseBoolError) -> ReadDataError {
-        ReadDataError::ParseData(Box::new(err))
-    }
-}
-
-impl From<ParseBoolError> for ViewDataError {
-    fn from(err: ParseBoolError) -> ViewDataError {
-        ViewDataError::InvalidData(Box::new(err))
-    }
-}
-
 /// Returns `Ok(_)` iff each of the bytes is a valid bitwise representation for
 /// `bool`.
 ///
@@ -160,13 +134,16 @@ impl From<ParseBoolError> for ViewDataError {
 /// `bool` with an invalid value is undefined behavior. Rust guarantees that
 /// `false` is represented as `0x00` and `true` is represented as `0x01`.
 fn check_valid_for_bool(bytes: &[u8]) -> Result<(), ParseBoolError> {
-    for &byte in bytes {
-        if byte > 1 {
-            return Err(ParseBoolError { bad_value: byte });
-        }
+    match bytes.iter().copied().find(|b| *b > 1) {
+        Some(b) => Err(ParseBoolError(b)),
+        None => Ok(()),
     }
-    Ok(())
 }
+
+/// An error parsing a `bool` from a byte.
+#[derive(Debug, Error)]
+#[error("error parsing value {0:#04x} as a bool")]
+pub struct ParseBoolError(u8);
 
 impl ReadableElement for bool {
     fn read_to_end_exact_vec<R: io::Read>(

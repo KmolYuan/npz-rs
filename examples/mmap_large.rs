@@ -1,6 +1,6 @@
 use memmap2::MmapMut;
 use ndarray::ArrayViewMut3;
-use npz::{sparse_zeroed_npy, ViewMutNpyExt};
+use npz::{sparse_zeroed_npy, ViewMutNpyExt as _};
 use std::{
     fs::{File, OpenOptions},
     io,

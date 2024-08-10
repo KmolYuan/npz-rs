@@ -31,7 +31,7 @@ fn view_i32_mut() {
     let type_desc = PyValue::String(String::from("<i4"));
     #[cfg(target_endian = "big")]
     let type_desc = PyValue::String(String::from(">i4"));
-    let out: &mut [i32] = <i32>::bytes_as_mut_slice(&mut aligned, &type_desc, elems.len()).unwrap();
+    let out = i32::bytes_as_mut_slice(&mut aligned, &type_desc, elems.len()).unwrap();
     assert_eq!(out, elems);
     out[2] += 1;
     let buf_last = i32::from_ne_bytes(aligned[2 * mem::size_of::<i32>()..].try_into().unwrap());
@@ -64,7 +64,7 @@ fn view_bool_bad_value() {
     let data = &[0x00, 0x01, 0x05, 0x00, 0x01];
     let type_desc = PyValue::String(String::from("|b1"));
     let out = <bool>::bytes_as_slice(data, &type_desc, data.len());
-    assert!(matches!(out, Err(ViewDataError::InvalidData(_))));
+    assert!(matches!(out, Err(ViewDataError::ParseBool(_))));
 }
 
 #[test]
@@ -72,7 +72,7 @@ fn view_bool_mut() {
     let data = &mut [0x00, 0x01, 0x00, 0x00, 0x01];
     let len = data.len();
     let type_desc = PyValue::String(String::from("|b1"));
-    let out = <bool>::bytes_as_mut_slice(data, &type_desc, len).unwrap();
+    let out = bool::bytes_as_mut_slice(data, &type_desc, len).unwrap();
     out[0] = true;
     out[1] = false;
     assert_eq!(data, &[0x01, 0x00, 0x00, 0x00, 0x01]);
@@ -83,8 +83,8 @@ fn view_bool_mut_bad_value() {
     let data = &mut [0x00, 0x01, 0x05, 0x00, 0x01];
     let len = data.len();
     let type_desc = PyValue::String(String::from("|b1"));
-    let out = <bool>::bytes_as_mut_slice(data, &type_desc, len);
-    assert!(matches!(out, Err(ViewDataError::InvalidData(_))));
+    let out = bool::bytes_as_mut_slice(data, &type_desc, len);
+    assert!(matches!(out, Err(ViewDataError::ParseBool(_))));
 }
 
 #[test]
@@ -100,7 +100,7 @@ fn read_bool_bad_value() {
     let data = &[0x00, 0x01, 0x05, 0x00, 0x01];
     let type_desc = PyValue::String(String::from("|b1"));
     match <bool>::read_to_end_exact_vec(Cursor::new(data), &type_desc, data.len()) {
-        Err(ReadDataError::ParseData(err)) => {
+        Err(ReadDataError::ParseBool(err)) => {
             assert_eq!(format!("{}", err), "error parsing value 0x05 as a bool");
         }
         _ => panic!(),

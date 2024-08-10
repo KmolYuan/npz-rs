@@ -17,13 +17,14 @@ nalgebra = { version = "0.33", optional = true }
 num-complex = { version = "0.4", optional = true }
 num-traits = "0.2"
 py_literal = "0.4"
+thiserror = "1"
 zip = { version = "2", default-features = false }
 
 [features]
-default = ["compressed-npz", "ndarray", "nalgebra", "num-complex"]
+default = ["compressed-npz", "num-complex"]
 compressed-npz = ["zip/deflate"]
-ndarray = ["dep:ndarray"]
 nalgebra = ["dep:nalgebra"]
+ndarray = ["dep:ndarray"]
 num-complex = ["dep:num-complex"]
 
 [dev-dependencies]
@@ -36,3 +37,19 @@ semicolon-if-nothing-returned = "warn"
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
+
+[[example]]
+name = "mmap_large"
+required-features = ["ndarray"]
+
+[[example]]
+name = "simple_npz"
+required-features = ["ndarray"]
+
+[[example]]
+name = "simple"
+required-features = ["ndarray"]
+
+[[test]]
+name = "integration"
+required-features = ["ndarray"]

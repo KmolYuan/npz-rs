@@ -1,4 +1,7 @@
-use super::check_for_extra_bytes;
+use super::{
+    check_for_extra_bytes, impl_view_and_view_mut_always_valid_cast_multi_byte,
+    impl_writable_element_always_valid_cast,
+};
 use crate::{ReadDataError, ReadableElement};
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use num_complex::Complex;

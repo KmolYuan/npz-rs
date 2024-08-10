@@ -48,9 +48,9 @@ mod impl_ndarray;
 
 pub use crate::{
     npy::{
-        read_npy, sparse_zeroed_npy, write_npy, ReadDataError, ReadNpyError, ReadNpyExt,
-        ReadableElement, ViewDataError, ViewElement, ViewMutElement, ViewMutNpyExt, ViewNpyError,
-        ViewNpyExt, WritableElement, WriteDataError, WriteNpyError, WriteNpyExt,
+        read_npy, sparse_zeroed_npy, write_npy, ParseHeaderError, ReadDataError, ReadNpyError,
+        ReadNpyExt, ReadableElement, ViewDataError, ViewElement, ViewMutElement, ViewMutNpyExt,
+        ViewNpyError, ViewNpyExt, WritableElement, WriteDataError, WriteNpyError, WriteNpyExt,
     },
     npz::{NpzReader, NpzWriter, ReadNpzError, WriteNpzError},
 };

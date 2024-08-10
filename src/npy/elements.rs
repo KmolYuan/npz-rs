@@ -1,7 +1,12 @@
 //! Implementations of the `*Element` traits.
 
+pub use self::primitive::ParseBoolError;
 use crate::{ReadDataError, ViewDataError};
 use std::{io, mem, slice};
+
+#[cfg(feature = "num-complex")]
+mod complex;
+mod primitive;
 
 /// Returns `Ok(_)` iff the `reader` had no more bytes on entry to this
 /// function.
@@ -9,10 +14,9 @@ use std::{io, mem, slice};
 /// **Warning** This will consume the remainder of the reader.
 fn check_for_extra_bytes<R: io::Read>(reader: &mut R) -> Result<(), ReadDataError> {
     let num_extra_bytes = reader.read_to_end(&mut Vec::new())?;
-    if num_extra_bytes == 0 {
-        Ok(())
-    } else {
-        Err(ReadDataError::ExtraBytes(num_extra_bytes))
+    match num_extra_bytes {
+        0 => Ok(()),
+        _ => Err(ReadDataError::ExtraBytes(num_extra_bytes)),
     }
 }
 
@@ -115,16 +119,14 @@ macro_rules! impl_view_and_view_mut_always_valid_cast_multi_byte {
                 type_desc: &::py_literal::Value,
                 len: usize,
             ) -> Result<&'a [Self], $crate::ViewDataError> {
-                match *type_desc {
-                    ::py_literal::Value::String(ref s) if s == $native_desc => unsafe {
+                match type_desc {
+                    ::py_literal::Value::String(s) if s == $native_desc => unsafe {
                         $crate::npy::elements::bytes_as_slice(bytes, len)
                     },
-                    ::py_literal::Value::String(ref s) if s == $non_native_desc => {
+                    ::py_literal::Value::String(s) if s == $non_native_desc => {
                         Err($crate::ViewDataError::NonNativeEndian)
                     }
-                    ref other => Err($crate::ViewDataError::WrongDescriptor(
-                        ::std::clone::Clone::clone(other),
-                    )),
+                    _ => Err($crate::ViewDataError::WrongDescriptor(type_desc.clone())),
                 }
             }
         }
@@ -135,21 +137,20 @@ macro_rules! impl_view_and_view_mut_always_valid_cast_multi_byte {
                 type_desc: &::py_literal::Value,
                 len: usize,
             ) -> Result<&'a mut [Self], $crate::ViewDataError> {
-                match *type_desc {
-                    ::py_literal::Value::String(ref s) if s == $native_desc => unsafe {
+                match type_desc {
+                    ::py_literal::Value::String(s) if s == $native_desc => unsafe {
                         $crate::npy::elements::bytes_as_mut_slice(bytes, len)
                     },
-                    ::py_literal::Value::String(ref s) if s == $non_native_desc => {
+                    ::py_literal::Value::String(s) if s == $non_native_desc => {
                         Err($crate::ViewDataError::NonNativeEndian)
                     }
-                    ref other => Err($crate::ViewDataError::WrongDescriptor(
-                        ::std::clone::Clone::clone(other),
-                    )),
+                    _ => Err($crate::ViewDataError::WrongDescriptor(type_desc.clone())),
                 }
             }
         }
     };
 }
+pub(crate) use impl_view_and_view_mut_always_valid_cast_multi_byte;
 
 /// Implements `WritableElement` for a type.
 ///
@@ -193,7 +194,4 @@ macro_rules! impl_writable_element_always_valid_cast {
         }
     };
 }
-
-#[cfg(feature = "num-complex")]
-mod complex;
-mod primitive;
+pub(crate) use impl_writable_element_always_valid_cast;

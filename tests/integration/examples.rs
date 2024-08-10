@@ -209,7 +209,7 @@ fn read_bool_bad_value() {
     let file = File::open("resources/example_bool_bad_value.npy").unwrap();
     assert!(matches!(
         Array3::<bool>::read_npy(file),
-        Err(ReadNpyError::ParseData(_))
+        Err(ReadNpyError::ParseBool(_))
     ));
 }
 
@@ -304,7 +304,7 @@ fn view_bool_bad_value() {
     let bytes = unsafe { file_to_aligned_bytes(&file).unwrap() };
     assert!(matches!(
         ArrayView3::<bool>::view_npy(&bytes),
-        Err(ViewNpyError::InvalidData(_))
+        Err(ViewNpyError::ParseBool(_))
     ));
 }
 
@@ -379,7 +379,7 @@ fn view_mut_bool_bad_value() {
     let mut bytes = unsafe { file_to_aligned_mut_bytes(&file).unwrap() };
     assert!(matches!(
         ArrayViewMut3::<bool>::view_mut_npy(&mut bytes),
-        Err(ViewNpyError::InvalidData(_))
+        Err(ViewNpyError::ParseBool(_))
     ));
 }
 

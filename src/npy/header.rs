@@ -14,11 +14,16 @@ const MAGIC_STRING: &[u8] = b"\x93NUMPY";
 // If this changes, update the docs of `ViewNpyExt` and `ViewMutNpyExt`.
 const HEADER_DIVISOR: usize = 64;
 
+/// An error parsing the header of a `.npy` file.
 #[derive(Debug)]
 pub enum ParseHeaderError {
+    /// The start of the file does not match the magic string.
     MagicString,
+    /// The version number is not recognized.
     Version {
+        /// Major version number.
         major: u8,
+        /// Minor version number.
         minor: u8,
     },
     /// Indicates that the `HEADER_LEN` doesn't fit in `usize`.
@@ -30,14 +35,22 @@ pub enum ParseHeaderError {
     /// .npy format versions 1.0 and 2.0, which require the array format string
     /// to be ASCII.
     Utf8Parse(std::str::Utf8Error),
+    /// An unknown key was found in the metadata dictionary.
     UnknownKey(PyValue),
+    /// A required key was missing from the metadata dictionary.
     MissingKey(&'static str),
+    /// An illegal value was found for a key in the metadata dictionary.
     IllegalValue {
+        /// The key for which the value was illegal.
         key: &'static str,
+        /// The illegal value.
         value: PyValue,
     },
+    /// Error parsing the metadata dictionary.
     DictParse(PyValueParseError),
+    /// The metadata is not a dictionary.
     MetaNotDict(PyValue),
+    /// The header is missing a newline at the end.
     MissingNewline,
 }
 
@@ -403,7 +416,7 @@ impl Header {
                 std::str::from_utf8(without_newline).map_err(ParseHeaderError::from)?
             }
         };
-        let arr_format: PyValue = header_str.parse().map_err(ParseHeaderError::from)?;
+        let arr_format = header_str.parse().map_err(ParseHeaderError::from)?;
         Ok(Self::from_py_value(arr_format)?)
     }
 
