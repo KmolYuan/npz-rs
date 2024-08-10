@@ -3,7 +3,7 @@
 use crate::{file_to_aligned_bytes, file_to_aligned_mut_bytes, MaybeAlignedBytes};
 use ndarray::{prelude::*, Slice};
 use npz::{
-    write_zeroed_npy, ReadNpyError, ReadNpyExt, ViewMutNpyExt, ViewNpyError, ViewNpyExt,
+    sparse_zeroed_npy, ReadNpyError, ReadNpyExt, ViewMutNpyExt, ViewNpyError, ViewNpyExt,
     WriteNpyExt,
 };
 use num_complex::Complex;
@@ -413,7 +413,7 @@ fn zeroed() {
     file.write_all(EXISTING_DATA).unwrap();
 
     // Write `.npy` file with zeroed data.
-    write_zeroed_npy::<i32>(&file, &SHAPE).unwrap();
+    sparse_zeroed_npy::<i32>(&file, &SHAPE).unwrap();
 
     // Reset cursor and verify EXISTING_DATA is still there.
     file.seek(SeekFrom::Start(0)).unwrap();

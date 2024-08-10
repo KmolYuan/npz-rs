@@ -1,6 +1,6 @@
 use memmap2::MmapMut;
 use ndarray::ArrayViewMut3;
-use npz::{write_zeroed_npy, ViewMutNpyExt};
+use npz::{sparse_zeroed_npy, ViewMutNpyExt};
 use std::{
     fs::{File, OpenOptions},
     io,
@@ -30,7 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create a (sparse if supported) file containing 64 GiB of zeroed data.
     println!("Creating the (sparse if supported) backing file...");
     let file = File::create(path)?;
-    write_zeroed_npy::<f64>(&file, &[1024, 2048, 4096])?;
+    sparse_zeroed_npy::<f64>(&file, &[1024, 2048, 4096])?;
 
     // Memory-map the file and create the mutable view.
     let file = OpenOptions::new().read(true).write(true).open(path)?;

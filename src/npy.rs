@@ -9,7 +9,7 @@ use std::{
     error::Error,
     fmt,
     fs::File,
-    io::{self, BufWriter, Seek},
+    io::{self, Seek as _},
     mem,
 };
 
@@ -61,7 +61,7 @@ where
     P: AsRef<std::path::Path>,
     T: WriteNpyExt,
 {
-    array.write_npy(BufWriter::new(File::create(path)?))
+    array.write_npy(io::BufWriter::new(File::create(path)?))
 }
 
 /// Writes an `.npy` file (sparse if possible) with bitwise-zero-filled data.
@@ -135,26 +135,25 @@ where
 /// ```no_run
 /// use memmap2::MmapMut;
 /// use ndarray::ArrayViewMut3;
-/// use npz::{write_zeroed_npy, ViewMutNpyExt};
+/// use npz::{sparse_zeroed_npy, ViewMutNpyExt};
 /// use std::fs::{File, OpenOptions};
 ///
 /// let path = "array.npy";
 ///
-/// // Create a (sparse if supported) file containing 64 GiB of zeroed data.
+/// // Create a (sparse if supported) file containing 64 GiB of zeroed data
 /// let file = File::create(path)?;
-/// write_zeroed_npy::<f64>(&file, &[1024, 2048, 4096])?;
+/// sparse_zeroed_npy::<f64>(&file, &[1024, 2048, 4096])?;
 ///
-/// // Memory-map the file and create the mutable view.
+/// // Memory-map the file and create the mutable view
 /// let file = OpenOptions::new().read(true).write(true).open(path)?;
 /// let mut mmap = unsafe { MmapMut::map_mut(&file)? };
 /// let mut view_mut = ArrayViewMut3::view_mut_npy(&mut mmap)?;
 ///
-/// // Modify an element in the view.
-/// view_mut[[500, 1000, 2000]] = 3.14;
-/// #
+/// // Modify an element in the view
+/// view_mut[[500, 1000, 2000]] = 888.;
 /// # Ok::<_, Box<dyn std::error::Error>>(())
 /// ```
-pub fn write_zeroed_npy<A>(mut file: &File, shape: &[usize]) -> Result<(), WriteNpyError>
+pub fn sparse_zeroed_npy<A>(mut file: &File, shape: &[usize]) -> Result<(), WriteNpyError>
 where
     A: WritableElement,
 {
@@ -172,14 +171,13 @@ where
     }
     .write(file)?;
     let current_offset = file.stream_position()?;
-    // First, truncate the file to the current offset.
+    // First, truncate the file to the current offset
     file.set_len(current_offset)?;
-    // Then, zero-extend the length to represent the data (sparse if possible).
-    file.set_len(
-        current_offset
-            .checked_add(data_bytes_len)
-            .expect("overflow computing file length"),
-    )?;
+    // Then, zero-extend the length to represent the data (sparse if possible)
+    let new_len = current_offset
+        .checked_add(data_bytes_len)
+        .expect("overflow computing file length");
+    file.set_len(new_len)?;
     Ok(())
 }
 
@@ -199,8 +197,8 @@ pub trait WritableElement: Sized {
 ///
 /// If writes are expensive (e.g. for a file or network socket) and the layout
 /// of the array is not known to be in standard or Fortran layout, it is
-/// strongly recommended to wrap the writer in a [`BufWriter`]. For the sake of
-/// convenience, this method calls [`.flush()`](io::Write::flush) on the writer
+/// strongly recommended to wrap the writer in a [`std::io::BufWriter`]. For the
+/// sake of convenience, this method calls [`io::Write::flush()`] on the writer
 /// before returning.
 ///
 /// # Example
